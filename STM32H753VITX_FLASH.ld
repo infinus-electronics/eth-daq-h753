@@ -153,7 +153,7 @@ SECTIONS
     . = ALIGN(4);
     _ebss = .;         /* define a global symbol at bss end */
     __bss_end__ = _ebss;
-  } >RAM_D1
+  } >DTCMRAM
 
   /* User_heap_stack section, used to check that there is enough RAM left */
   ._user_heap_stack :
@@ -164,7 +164,39 @@ SECTIONS
     . = . + _Min_Heap_Size;
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
+  } >DTCMRAM
+  
+  .dtcm_data :
+  {
+    PROVIDE_HIDDEN (__dtcm_data_start = .);
+    KEEP (*(SORT(.dtcm_data.*)))
+    KEEP (*(.dtcm_data*))
+    PROVIDE_HIDDEN (__dtcm_data_end = .);
+  } >DTCMRAM
+  
+  .ethernet_data :
+  {
+    PROVIDE_HIDDEN (__ethernet_data_start = .);
+    KEEP (*(SORT(.ethernet_data.*)))
+    KEEP (*(.ethernet_data*))
+    PROVIDE_HIDDEN (__ethernet_data_end = .);
   } >RAM_D1
+  
+  .ram2_data :
+  {
+    PROVIDE_HIDDEN (__ram2_data_start = .);
+    KEEP (*(SORT(.ram2_data.*)))
+    KEEP (*(.ram2_data*))
+    PROVIDE_HIDDEN (__ram2_data_end = .);
+  } >RAM_D2
+  
+  .ram3_data :
+  {
+    PROVIDE_HIDDEN (__ram3_data_start = .);
+    KEEP (*(SORT(.ram3_data.*)))
+    KEEP (*(.ram3_data*))
+    PROVIDE_HIDDEN (__ram3_data_end = .);
+  } >RAM_D3
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
