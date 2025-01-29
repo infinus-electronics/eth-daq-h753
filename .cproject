@@ -91,7 +91,7 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
-						<entry excluding="FreeRTOS-Plus-TCP/tools/tcp_utilities/plus_tcp_demo_cli.c|Utilities/iperf_task_v3_0d.c|STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth_ex.c|STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
+						<entry excluding="FreeRTOS-Kernel/examples/cmake_example|FreeRTOS-Plus-TCP/tools/tcp_utilities/plus_tcp_demo_cli.c|Utilities/iperf_task_v3_0d.c|STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth_ex.c|STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -167,7 +167,7 @@
 					</folderInfo>
 					<sourceEntries>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Core"/>
-						<entry excluding="FreeRTOS-Plus-TCP/tools/tcp_utilities/plus_tcp_demo_cli.c|Utilities/iperf_task_v3_0d.c|STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth_ex.c|STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
+						<entry excluding="FreeRTOS-Kernel/examples/cmake_example|FreeRTOS-Plus-TCP/tools/tcp_utilities/plus_tcp_demo_cli.c|Utilities/iperf_task_v3_0d.c|STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth_ex.c|STM32H7xx_HAL_Driver/Src/stm32h7xx_hal_eth.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="Drivers"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -189,4 +189,5 @@
 			<autodiscovery enabled="false" problemReportingEnabled="true" selectedProfileId=""/>
 		</scannerConfigBuildInfo>
 	</storageModule>
+	<storageModule moduleId="refreshScope"/>
 </cproject>

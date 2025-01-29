@@ -1,0 +1,12 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:60:25:pxTCPSocketLookup_IPv6	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:105:8:xSend_UDP_Update_IPv6	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:130:8:xRecv_Update_IPv6	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:162:6:cHexToChar	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:196:11:uxHexPrintShort	56	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:238:6:prv_ntop6_search_zeros	40	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:293:19:prv_ntop6_write_zeros	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:344:19:prv_ntop6_write_short	48	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:398:14:FreeRTOS_inet_ntop6	48	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:464:19:prv_inet_pton6_add_nibble	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:534:13:prv_inet_pton6_set_zeros	40	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:564:12:FreeRTOS_inet_pton6	56	static

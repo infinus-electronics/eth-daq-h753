@@ -1,0 +1,3 @@
+../Drivers/Utilities/hr_gettime.c:97:6:TIM2_IRQHandler	4	static
+../Drivers/Utilities/hr_gettime.c:109:6:vStartHighResolutionTimer	16	static
+../Drivers/Utilities/hr_gettime.c:135:10:ullGetHighResolutionTime	88	static

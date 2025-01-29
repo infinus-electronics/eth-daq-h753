@@ -1,0 +1,4 @@
+../Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/date_and_time.c:71:8:FreeRTOS_time	2
+../Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/date_and_time.c:91:6:FreeRTOS_settime	1
+../Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/date_and_time.c:103:8:FreeRTOS_get_secs_msec	2
+../Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/date_and_time.c:124:6:FreeRTOS_set_secs_msec	2

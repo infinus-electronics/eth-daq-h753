@@ -24,5 +24,15 @@ C_DEPS :=
 SUBDIRS := \
 Core/Src \
 Core/Startup \
+Drivers/FreeRTOS-Kernel \
+Drivers/FreeRTOS-Kernel/portable/Common \
+Drivers/FreeRTOS-Kernel/portable/GCC/ARM_CM7/r0p1 \
+Drivers/FreeRTOS-Kernel/portable/MemMang \
+Drivers/FreeRTOS-Plus-TCP \
+Drivers/FreeRTOS-Plus-TCP/portable/BufferManagement \
+Drivers/FreeRTOS-Plus-TCP/portable/NetworkInterface/Common \
+Drivers/FreeRTOS-Plus-TCP/portable/NetworkInterface/STM32Hxx \
+Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities \
 Drivers/STM32H7xx_HAL_Driver/Src \
+Drivers/Utilities \
 

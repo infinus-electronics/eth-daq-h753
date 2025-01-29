@@ -22,11 +22,13 @@
 #include "stm32h7xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "FreeRTOS.h"
+#include "task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN TD */
-
+extern void xPortSysTickHandler();
 /* USER CODE END TD */
 
 /* Private define ------------------------------------------------------------*/
@@ -62,7 +64,8 @@ extern SPI_HandleTypeDef hspi2;
 extern DMA_HandleTypeDef hdma_tim1_up;
 extern DMA_HandleTypeDef hdma_tim3_up;
 /* USER CODE BEGIN EV */
-
+extern TaskHandle_t vADCTCPTaskHandle;
+extern TaskHandle_t vAuxADCTCPTaskHandle;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -151,7 +154,10 @@ void SysTick_Handler(void)
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-
+  if( xTaskGetSchedulerState() == taskSCHEDULER_RUNNING )
+      {
+    	xPortSysTickHandler();
+      }
   /* USER CODE END SysTick_IRQn 1 */
 }
 
@@ -168,11 +174,40 @@ void SysTick_Handler(void)
 void DMA1_Stream0_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Stream0_IRQn 0 */
+  BaseType_t xHigherPriorityTaskWoken;
+  uint32_t ulCurrBuf = 0;
+  //SPI1 Stream
+  if (DMA1->LISR & DMA_FLAG_TCIF0_4){
+      uint32_t status = DMA1_Stream0->CR;
+        if ((status & DMA_SxCR_CT_Msk)!=0){ //current Transmittable Buffer
+  	  ulCurrBuf = 0;
+        } else {
+  	  ulCurrBuf = 1;
+        }
 
+    }
   /* USER CODE END DMA1_Stream0_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_spi1_rx);
   /* USER CODE BEGIN DMA1_Stream0_IRQn 1 */
+  /* xHigherPriorityTaskWoken must be initialised to pdFALSE. If calling
+     xTaskNotifyFromISR() unblocks the handling task, and the priority of
+     the handling task is higher than the priority of the currently running task,
+     then xHigherPriorityTaskWoken will automatically get set to pdTRUE. */
+  xHigherPriorityTaskWoken = pdFALSE;
+  /* Unblock the handling task so the task can perform any processing necessitated
+     by the interrupt. xHandlingTask is the task's handle, which was obtained
+     when the task was created. The handling task's 0th notification value
+     is bitwise ORed with the interrupt status - ensuring bits that are already
+     set are not overwritten. */
+  xTaskNotifyFromISR( vADCTCPTaskHandle,
+			     ulCurrBuf,
+			     eSetBits,
+			     &xHigherPriorityTaskWoken );
 
+  /* Force a context switch if xHigherPriorityTaskWoken is now set to pdTRUE.
+     The macro used to do this is dependent on the port and may be called
+     portEND_SWITCHING_ISR. */
+  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
   /* USER CODE END DMA1_Stream0_IRQn 1 */
 }
 

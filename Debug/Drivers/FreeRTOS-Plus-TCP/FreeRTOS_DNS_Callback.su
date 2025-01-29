@@ -1,0 +1,4 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Callback.c:56:16:xDNSDoCallback	48	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Callback.c:132:16:xDNSSetCallBack	40	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Callback.c:194:10:vDNSCheckCallBack	56	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Callback.c:280:10:vDNSCallbackInitialise	8	static

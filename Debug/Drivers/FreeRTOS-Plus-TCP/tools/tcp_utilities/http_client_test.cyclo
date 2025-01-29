@@ -1,0 +1,4 @@
+../Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/http_client_test.c:144:10:vStartHTTPClientTest	3
+../Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/http_client_test.c:175:10:wakeupHTTPClient	5
+../Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/http_client_test.c:205:17:prvEchoClientTask	28
+../Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/http_client_test.c:540:10:printBuffer	9

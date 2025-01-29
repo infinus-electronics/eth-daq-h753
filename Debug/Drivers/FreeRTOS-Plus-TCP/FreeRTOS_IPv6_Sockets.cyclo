@@ -1,0 +1,12 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:60:25:pxTCPSocketLookup_IPv6	8
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:105:8:xSend_UDP_Update_IPv6	2
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:130:8:xRecv_Update_IPv6	3
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:162:6:cHexToChar	3
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:196:11:uxHexPrintShort	6
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:238:6:prv_ntop6_search_zeros	8
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:293:19:prv_ntop6_write_zeros	4
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:344:19:prv_ntop6_write_short	5
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:398:14:FreeRTOS_inet_ntop6	7
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:464:19:prv_inet_pton6_add_nibble	7
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:534:13:prv_inet_pton6_set_zeros	2
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6_Sockets.c:564:12:FreeRTOS_inet_pton6	10

@@ -1,0 +1,9 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:92:23:xCheckIPv6SizeFields	56	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:242:23:xIsExtHeader	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:271:13:xGetIPv6MulticastGroupID	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:292:12:xIsIPv6Loopback	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:351:12:xIsIPv6AllowedMulticast	40	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:401:12:xCompareIPv6_Address	48	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:486:26:prvAllowIPPacketIPv6	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:596:12:xGetExtensionOrder	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv6.c:660:26:eHandleIPv6ExtensionHeaders	64	static

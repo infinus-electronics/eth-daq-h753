@@ -1,0 +1,17 @@
+../Drivers/Utilities/printf-stdarg.c:52:34:xApplicationMemoryPermissions	1
+../Drivers/Utilities/printf-stdarg.c:60:28:vOutputChar	1
+../Drivers/Utilities/printf-stdarg.c:113:13:strbuf_init	1
+../Drivers/Utilities/printf-stdarg.c:124:19:strbuf_printchar	4
+../Drivers/Utilities/printf-stdarg.c:146:28:strbuf_printchar_inline	6
+../Drivers/Utilities/printf-stdarg.c:193:19:prints	19
+../Drivers/Utilities/printf-stdarg.c:353:19:printi	16
+../Drivers/Utilities/printf-stdarg.c:441:19:printIp	1
+../Drivers/Utilities/printf-stdarg.c:457:17:usNetToHost	2
+../Drivers/Utilities/printf-stdarg.c:469:19:printIPv6	12
+../Drivers/Utilities/printf-stdarg.c:527:13:tiny_print	42
+../Drivers/Utilities/printf-stdarg.c:720:5:tiny_printf	1
+C:\ST\STM32CubeIDE_1.13.2\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.12.3.rel1.win32_1.0.200.202406191623\tools\bin/../lib/gcc/arm-none-eabi/12.3.1/../../../../arm-none-eabi/include/stdio.h:274:5:vsnprintf	1
+C:\ST\STM32CubeIDE_1.13.2\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.12.3.rel1.win32_1.0.200.202406191623\tools\bin/../lib/gcc/arm-none-eabi/12.3.1/../../../../arm-none-eabi/include/stdio.h:272:5:snprintf	1
+C:\ST\STM32CubeIDE_1.13.2\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.12.3.rel1.win32_1.0.200.202406191623\tools\bin/../lib/gcc/arm-none-eabi/12.3.1/../../../../arm-none-eabi/include/stdio.h:250:5:sprintf	1
+C:\ST\STM32CubeIDE_1.13.2\STM32CubeIDE\plugins\com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.12.3.rel1.win32_1.0.200.202406191623\tools\bin/../lib/gcc/arm-none-eabi/12.3.1/../../../../arm-none-eabi/include/stdio.h:216:5:vsprintf	1
+../Drivers/Utilities/printf-stdarg.c:782:13:mkSize	5

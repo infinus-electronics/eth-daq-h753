@@ -1,0 +1,12 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:100:18:FreeRTOS_dnslookup	48	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:127:18:FreeRTOS_dnslookup6	64	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:163:16:FreeRTOS_dns_update	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:183:10:FreeRTOS_dnsclear	8	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:203:16:FreeRTOS_ProcessDNSCache	120	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:313:23:prvFindEntryIndex	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:355:23:prvGetCacheIPEntry	40	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:412:17:prvUpdateCacheEntry	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:443:17:prvInsertCacheEntry	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:482:17:prvReadDNSCache	40	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:550:14:Prepare_CacheLookup	72	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Cache.c:624:14:vShowDNSCacheTable	72	static

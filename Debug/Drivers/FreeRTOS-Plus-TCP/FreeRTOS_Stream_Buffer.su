@@ -1,0 +1,12 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:53:8:uxStreamBufferSpace	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:76:8:uxStreamBufferDistance	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:99:8:uxStreamBufferGetSpace	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:111:8:uxStreamBufferFrontSpace	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:124:8:uxStreamBufferGetSize	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:136:8:uxStreamBufferMidSpace	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:146:6:vStreamBufferClear	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:162:6:vStreamBufferMoveMid	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:196:12:xStreamBufferLessThenEqual	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:223:8:uxStreamBufferGetPtr	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:250:8:uxStreamBufferAdd	48	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_Stream_Buffer.c:350:8:uxStreamBufferGet	48	static

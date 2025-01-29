@@ -1,0 +1,2 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_UDP_IP.c:69:6:vProcessGeneratedUDPPacket	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_UDP_IP.c:112:12:xProcessReceivedUDPPacket	32	static

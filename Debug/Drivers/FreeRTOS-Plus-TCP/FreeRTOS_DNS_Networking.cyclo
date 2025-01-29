@@ -1,0 +1,5 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Networking.c:46:16:DNS_BindSocket	1
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Networking.c:66:14:DNS_CreateSocket	2
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Networking.c:101:16:DNS_SendRequest	2
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Networking.c:139:16:DNS_ReadReply	2
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Networking.c:168:10:DNS_CloseSocket	1

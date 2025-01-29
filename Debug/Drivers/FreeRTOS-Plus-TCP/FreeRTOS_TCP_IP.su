@@ -1,0 +1,10 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:109:10:vSocketCloseNextTime	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:125:10:vSocketListenNextTime	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:154:16:xTCPSocketCheck	48	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:256:10:prvTCPTouchSocket	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:277:23:vTCPRemoveTCPChild	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:320:10:vTCPStateChange	112	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:621:16:prvTCPNextTimeout	128	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:700:28:xGetSourceAddrFromBuffer	56	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:752:16:xProcessReceivedTCPPacket	104	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_IP.c:1005:16:xTCPCheckNewClient	40	static

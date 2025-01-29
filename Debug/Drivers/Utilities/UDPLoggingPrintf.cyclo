@@ -1,0 +1,9 @@
+../Drivers/Utilities/UDPLoggingPrintf.c:222:19:prvInitialiseLogging	4
+../Drivers/Utilities/UDPLoggingPrintf.c:252:15:prvGetMessageFromStreamBuffer	4
+../Drivers/Utilities/UDPLoggingPrintf.c:299:15:prvBufferFormattedString	4
+../Drivers/Utilities/UDPLoggingPrintf.c:346:5:lUDPLoggingPrintf	2
+../Drivers/Utilities/UDPLoggingPrintf.c:368:6:vUDPLoggingTaskCreate	1
+../Drivers/Utilities/UDPLoggingPrintf.c:375:11:xLoggingGetSocket	3
+../Drivers/Utilities/UDPLoggingPrintf.c:392:28:vUDPLoggingHook	1
+../Drivers/Utilities/UDPLoggingPrintf.c:403:13:prvLoggingTask	17
+../Drivers/Utilities/UDPLoggingPrintf.c:611:6:vUDPLoggingFlush	2

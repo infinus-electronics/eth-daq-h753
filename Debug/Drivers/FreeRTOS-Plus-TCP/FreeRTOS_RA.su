@@ -1,0 +1,9 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:99:23:xGetLinkLocalAddress	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:130:10:vNDSendRouterSolicitation	80	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:236:10:vReceiveNA	32	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:271:38:vReceiveRA_ReadReply	88	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:362:10:vReceiveRA	72	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:441:23:xRAProcess_HandleWaitStates	64	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:533:23:xRAProcess_HandleOtherStates	56	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:628:17:vRAProcessInit	16	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_RA.c:640:10:vRAProcess	48	static

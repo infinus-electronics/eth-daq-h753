@@ -1,0 +1,2 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv4_Utils.c:57:6:vSetMultiCastIPv4MacAddress	24	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IPv4_Utils.c:78:12:prvChecksumIPv4Checks	40	static

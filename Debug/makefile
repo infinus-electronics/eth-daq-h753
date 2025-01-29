@@ -9,7 +9,17 @@ RM := rm -rf
 
 # All of the sources participating in the build are defined here
 -include sources.mk
+-include Drivers/Utilities/subdir.mk
 -include Drivers/STM32H7xx_HAL_Driver/Src/subdir.mk
+-include Drivers/FreeRTOS-Plus-TCP/tools/tcp_utilities/subdir.mk
+-include Drivers/FreeRTOS-Plus-TCP/portable/NetworkInterface/STM32Hxx/subdir.mk
+-include Drivers/FreeRTOS-Plus-TCP/portable/NetworkInterface/Common/subdir.mk
+-include Drivers/FreeRTOS-Plus-TCP/portable/BufferManagement/subdir.mk
+-include Drivers/FreeRTOS-Plus-TCP/subdir.mk
+-include Drivers/FreeRTOS-Kernel/portable/MemMang/subdir.mk
+-include Drivers/FreeRTOS-Kernel/portable/GCC/ARM_CM7/r0p1/subdir.mk
+-include Drivers/FreeRTOS-Kernel/portable/Common/subdir.mk
+-include Drivers/FreeRTOS-Kernel/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include objects.mk

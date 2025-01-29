@@ -1,0 +1,2 @@
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_Utils.c:68:22:prvTCPFlagMeaning	9
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_TCP_Utils.c:92:10:prvSocketSetMSS	3
