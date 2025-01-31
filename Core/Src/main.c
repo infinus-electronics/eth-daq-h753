@@ -67,7 +67,7 @@ __attribute__((at(0x30000000))) ETH_DMADescTypeDef  DMARxDscrTab[ETH_RX_DESC_CNT
 __attribute__((at(0x30000080))) ETH_DMADescTypeDef  DMATxDscrTab[ETH_TX_DESC_CNT]; /* Ethernet Tx DMA Descriptors */
 
 #elif defined ( __GNUC__ ) /* GNU Compiler */
-
+//
 //ETH_DMADescTypeDef DMARxDscrTab[ETH_RX_DESC_CNT] __attribute__((section(".RxDecripSection"))); /* Ethernet Rx DMA Descriptors */
 //ETH_DMADescTypeDef DMATxDscrTab[ETH_TX_DESC_CNT] __attribute__((section(".TxDecripSection")));   /* Ethernet Tx DMA Descriptors */
 #endif
@@ -131,7 +131,7 @@ void PeriphCommonClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
-//static void MX_ETH_Init(void);
+static void MX_ETH_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
@@ -217,15 +217,15 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   //SPI1 RX Stream
-  DMA1_Stream0->M0AR = usADCDataMock0;
-  DMA1_Stream0->M1AR = usADCDataMock1;
-  DMA1_Stream0->PAR = &(SPI1->RXDR);
-  DMA1_Stream0->CR |= DMA_DOUBLE_BUFFER_M0;
-  DMA1_Stream0->NDTR = ADC_BUFFER_HALF_SIZE;
-//  DMA1_Stream0->CR |= DMA_SxCR_TCIE | DMA_SxCR_HTIE | DMA_SxCR_TEIE | DMA_SxCR_DMEIE;
-  DMA1_Stream0->CR |= DMA_SxCR_TCIE;
-  __DSB(); //required?
-  DMA1_Stream0->CR |= DMA_SxCR_EN;
+   DMA1_Stream0->M0AR = usADCDataMock0;
+   DMA1_Stream0->M1AR = usADCDataMock1;
+   DMA1_Stream0->PAR = &(SPI1->RXDR);
+   DMA1_Stream0->CR |= DMA_DOUBLE_BUFFER_M0;
+   DMA1_Stream0->NDTR = ADC_BUFFER_HALF_SIZE;
+  //  DMA1_Stream0->CR |= DMA_SxCR_TCIE | DMA_SxCR_HTIE | DMA_SxCR_TEIE | DMA_SxCR_DMEIE;
+   DMA1_Stream0->CR |= DMA_SxCR_TCIE;
+   __DSB(); //required?
+   DMA1_Stream0->CR |= DMA_SxCR_EN;
 
   //SPI2 RX Stream
   DMA1_Stream1->M0AR = usAuxADCDataMock0;
@@ -252,7 +252,39 @@ int main(void)
   __DSB(); //required?
   DMA1_Stream3->CR |= DMA_SxCR_EN;
 
+  //initialize high speed ADC here
+  SPI1->CR1 |= SPI_CR1_SPE;
+  SPI1->CR1 |= SPI_CR1_CSTART;
+  HAL_GPIO_WritePin(HS_ADC_RESET_GPIO_Port, HS_ADC_RESET_Pin, GPIO_PIN_RESET);
+  HAL_Delay(100);
+  HAL_GPIO_WritePin(HS_ADC_RESET_GPIO_Port, HS_ADC_RESET_Pin, GPIO_PIN_SET);
+  HAL_Delay(100);
+  uint8_t spi_data[2] = {0b01011011, 0x80+0x05}; //high reference, low input, vcm on, refpbuf on, input buf on
+  SPI1->TXDR = ((spi_data[1] << 8) | spi_data[0]);
+  while((SPI1->SR & SPI_SR_TXC) == 0){}; //wait for enough space to become available
+  spi_data[1]++;
+  spi_data[0] = 0b00010000; //sync control mode
+  SPI1->TXDR = ((spi_data[1] << 8) | spi_data[0]);
+  while((SPI1->SR & SPI_SR_TXC) == 0){}; //wait for enough space to become available
+  spi_data[1]++;
+  spi_data[0] = 0b00001001; //sinc4 osr16
+  SPI1->TXDR = ((spi_data[1] << 8) | spi_data[0]);
+  while((SPI1->SR & SPI_SR_TXC) == 0){}; //wait for enough space to become available
+  spi_data[1]++;
+  spi_data[0]=0b10000000; //external clock
+  SPI1->TXDR = ((spi_data[1] << 8) | spi_data[0]);
+  while((SPI1->SR & SPI_SR_TXC) == 0){}; //wait for enough space to become available
+  spi_data[1]=0x80+0x03; //start conversion
+  spi_data[0]=0b00000010;
+  SPI1->TXDR = ((spi_data[1] << 8) | spi_data[0]);
+  while((SPI1->SR & SPI_SR_TXC) == 0){}; //wait for enough space to become available
+  SPI1->CR1 &= ~SPI_CR1_SPE;
+
+
+
   //Enable SPI1
+//  SPI1->CR1 &=  ~SPI_CR1_SPE;
+  SPI1->CR2 = 0; //reinitialize tsize
   SPI1->CFG1 |= SPI_CFG1_RXDMAEN;
   SPI1->CR1 |= SPI_CR1_SPE;
   SPI1->CR1 |= SPI_CR1_CSTART;
@@ -473,7 +505,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.Direction = SPI_DIRECTION_2LINES;
   hspi1.Init.DataSize = SPI_DATASIZE_16BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
   hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
@@ -813,15 +845,65 @@ static void MX_DMA_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 /* USER CODE BEGIN MX_GPIO_Init_1 */
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, DUT_HVDC_ISOLATE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GADC_RESET_GPIO_Port, GADC_RESET_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOA, HS_ADC_START_Pin|HS_ADC_RESET_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : DUT_HVDC_ISOLATE_Pin DUT_VGS_IDLE_SEL_Pin DUT_VICTRL_SEL_Pin DUT_GATE_SEL_Pin */
+  GPIO_InitStruct.Pin = DUT_HVDC_ISOLATE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : GADC_RESET_Pin */
+  GPIO_InitStruct.Pin = GADC_RESET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GADC_RESET_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : GADC_RVS_Pin */
+  GPIO_InitStruct.Pin = GADC_RVS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GADC_RVS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : HS_ADC_START_Pin HS_ADC_RESET_Pin */
+  GPIO_InitStruct.Pin = HS_ADC_START_Pin|HS_ADC_RESET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : HS_ADC_DRDY_Pin */
+  GPIO_InitStruct.Pin = HS_ADC_DRDY_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(HS_ADC_DRDY_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : EFUSE_FLT_Pin EFUSE_PGOOD_Pin */
+  GPIO_InitStruct.Pin = EFUSE_FLT_Pin|EFUSE_PGOOD_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

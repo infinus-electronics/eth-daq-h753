@@ -57,6 +57,28 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define DUT_HVDC_ISOLATE_Pin GPIO_PIN_2
+#define DUT_HVDC_ISOLATE_GPIO_Port GPIOE
+#define DUT_VGS_IDLE_SEL_Pin GPIO_PIN_3
+#define DUT_VGS_IDLE_SEL_GPIO_Port GPIOE
+#define DUT_VICTRL_SEL_Pin GPIO_PIN_4
+#define DUT_VICTRL_SEL_GPIO_Port GPIOE
+#define DUT_GATE_SEL_Pin GPIO_PIN_5
+#define DUT_GATE_SEL_GPIO_Port GPIOE
+#define GADC_RESET_Pin GPIO_PIN_10
+#define GADC_RESET_GPIO_Port GPIOD
+#define GADC_RVS_Pin GPIO_PIN_11
+#define GADC_RVS_GPIO_Port GPIOD
+#define HS_ADC_START_Pin GPIO_PIN_8
+#define HS_ADC_START_GPIO_Port GPIOA
+#define HS_ADC_DRDY_Pin GPIO_PIN_9
+#define HS_ADC_DRDY_GPIO_Port GPIOA
+#define HS_ADC_RESET_Pin GPIO_PIN_10
+#define HS_ADC_RESET_GPIO_Port GPIOA
+#define EFUSE_FLT_Pin GPIO_PIN_8
+#define EFUSE_FLT_GPIO_Port GPIOB
+#define EFUSE_PGOOD_Pin GPIO_PIN_9
+#define EFUSE_PGOOD_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
