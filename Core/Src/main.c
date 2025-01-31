@@ -267,14 +267,14 @@ int main(void)
   TIM1->CR1 &= ~TIM_CR1_UDIS;
   TIM1->DIER |= TIM_DMA_UPDATE;
   TIM1->EGR |= TIM_EGR_UG;
-//  TIM1->CR1 |= TIM_CR1_CEN;
+  TIM1->CR1 |= TIM_CR1_CEN;
 
   //Enable TIM3 (SPI2)
   TIM3->CR1 |= TIM_CR1_URS;
   TIM3->CR1 &= ~TIM_CR1_UDIS;
   TIM3->DIER |= TIM_DMA_UPDATE;
   TIM3->EGR |= TIM_EGR_UG;
-//  TIM3->CR1 |= TIM_CR1_CEN;
+  TIM3->CR1 |= TIM_CR1_CEN;
 
   /* Initialise the interface descriptor for WinPCap for example. */
      pxSTM32H_FillInterfaceDescriptor( 0, &( xInterfaces[ 0 ] ) );
