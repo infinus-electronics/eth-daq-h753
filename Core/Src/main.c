@@ -74,7 +74,9 @@ __attribute__((at(0x30000080))) ETH_DMADescTypeDef  DMATxDscrTab[ETH_TX_DESC_CNT
 
 ETH_TxPacketConfig TxConfig;
 
-//ETH_HandleTypeDef heth;
+// ETH_HandleTypeDef heth;
+
+I2C_HandleTypeDef hi2c4;
 
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
@@ -139,6 +141,7 @@ static void MX_SPI3_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_I2C4_Init(void);
 /* USER CODE BEGIN PFP */
 static void vHeapInit(void);
 extern void vStartHighResolutionTimer(void);
@@ -206,15 +209,45 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
-//  MX_ETH_Init();s
+  // MX_ETH_Init();
   MX_USART3_UART_Init();
   MX_SPI1_Init();
   MX_SPI2_Init();
   MX_SPI3_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
-//  MX_TIM2_Init();
+  // MX_TIM2_Init();
+  MX_I2C4_Init();
   /* USER CODE BEGIN 2 */
+
+  //DAC Setup
+  HAL_GPIO_WritePin(DUT_DAC_RESET_GPIO_Port, DUT_DAC_RESET_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(DUT_DAC_LDAC_GPIO_Port, DUT_DAC_LDAC_Pin, GPIO_PIN_RESET);
+  HAL_Delay(50);
+  HAL_GPIO_WritePin(DUT_DAC_RESET_GPIO_Port, DUT_DAC_RESET_Pin, GPIO_PIN_SET);
+  HAL_Delay(50);
+
+  I2C4->CR2 = ( (0b0001100 << 1) & 0xFFFE )  // 7-bit address
+                 | (3 << 16)                   // NBYTES = 2
+                 | (0 << 10)                   // Write direction (0 = write)
+                 | I2C_CR2_AUTOEND             // Auto generate STOP
+                 | I2C_CR2_START;              // Generate START
+  while( (I2C4->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) == 0 );
+//      if (I2C4->ISR & I2C_ISR_NACKF) {
+//          I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
+//          return;  // Abort on failure
+//      }
+  I2C4->TXDR = 0b00111001; //write to both registers
+  while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
+  I2C4->TXDR = 0; //MSB
+  while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
+  I2C4->TXDR = 4; //LSB
+  while( (I2C4->ISR & (I2C_ISR_TXE)) == 0 );
+  // Check if NACK occurred
+  if (I2C4->ISR & I2C_ISR_NACKF) {
+      // Handle error (e.g., reset I2C)
+      I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
+  }
 
   //SPI1 RX Stream
    DMA1_Stream0->M0AR = usADCDataMock0;
@@ -259,7 +292,7 @@ int main(void)
   HAL_Delay(100);
   HAL_GPIO_WritePin(HS_ADC_RESET_GPIO_Port, HS_ADC_RESET_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
-  uint8_t spi_data[2] = {0b01011011, 0x80+0x05}; //high reference, low input, vcm on, refpbuf on, input buf on
+  uint8_t spi_data[2] = {0b00011011, 0x80+0x05}; //low reference, low input, vcm on, refpbuf on, input buf on
   SPI1->TXDR = ((spi_data[1] << 8) | spi_data[0]);
   while((SPI1->SR & SPI_SR_TXC) == 0){}; //wait for enough space to become available
   spi_data[1]++;
@@ -480,9 +513,57 @@ void PeriphCommonClock_Config(void)
 //  TxConfig.CRCPadCtrl = ETH_CRC_PAD_INSERT;
 //  /* USER CODE BEGIN ETH_Init 2 */
 //////////
-//  /* USER CODE END ETH_Init 2 */
-//
+  /* USER CODE END ETH_Init 2 */
+
 //}
+
+/**
+  * @brief I2C4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C4_Init(void)
+{
+
+  /* USER CODE BEGIN I2C4_Init 0 */
+
+  /* USER CODE END I2C4_Init 0 */
+
+  /* USER CODE BEGIN I2C4_Init 1 */
+
+  /* USER CODE END I2C4_Init 1 */
+  hi2c4.Instance = I2C4;
+  hi2c4.Init.Timing = 0x10C0ECFF;
+  hi2c4.Init.OwnAddress1 = 0;
+  hi2c4.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c4.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c4.Init.OwnAddress2 = 0;
+  hi2c4.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c4.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c4, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c4, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C4_Init 2 */
+
+  /* USER CODE END I2C4_Init 2 */
+
+}
 
 /**
   * @brief SPI1 Initialization Function
@@ -861,7 +942,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE, DUT_HVDC_ISOLATE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GADC_RESET_GPIO_Port, GADC_RESET_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, GADC_RESET_Pin|DUT_DAC_LDAC_Pin|DUT_DAC_RESET_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, HS_ADC_START_Pin|HS_ADC_RESET_Pin, GPIO_PIN_RESET);
@@ -873,12 +954,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : GADC_RESET_Pin */
-  GPIO_InitStruct.Pin = GADC_RESET_Pin;
+  /*Configure GPIO pins : GADC_RESET_Pin DUT_DAC_LDAC_Pin DUT_DAC_RESET_Pin */
+  GPIO_InitStruct.Pin = GADC_RESET_Pin|DUT_DAC_LDAC_Pin|DUT_DAC_RESET_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GADC_RESET_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pin : GADC_RVS_Pin */
   GPIO_InitStruct.Pin = GADC_RVS_Pin;

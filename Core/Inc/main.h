@@ -69,6 +69,10 @@ void Error_Handler(void);
 #define GADC_RESET_GPIO_Port GPIOD
 #define GADC_RVS_Pin GPIO_PIN_11
 #define GADC_RVS_GPIO_Port GPIOD
+#define DUT_DAC_LDAC_Pin GPIO_PIN_14
+#define DUT_DAC_LDAC_GPIO_Port GPIOD
+#define DUT_DAC_RESET_Pin GPIO_PIN_15
+#define DUT_DAC_RESET_GPIO_Port GPIOD
 #define HS_ADC_START_Pin GPIO_PIN_8
 #define HS_ADC_START_GPIO_Port GPIOA
 #define HS_ADC_DRDY_Pin GPIO_PIN_9
