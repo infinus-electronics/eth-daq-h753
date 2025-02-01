@@ -320,6 +320,7 @@ int main(void)
   DMA1_Stream3->CR |= DMA_SxCR_EN;
 
   //initialize high speed ADC here
+  SPI1->CR2 = 0; //reinitialize tsize
   SPI1->CR1 |= SPI_CR1_SPE;
   SPI1->CR1 |= SPI_CR1_CSTART;
   HAL_GPIO_WritePin(HS_ADC_RESET_GPIO_Port, HS_ADC_RESET_Pin, GPIO_PIN_RESET);
@@ -348,14 +349,26 @@ int main(void)
   SPI1->CR1 &= ~SPI_CR1_SPE;
 
   //GADC Setup
-  SPI2->CR2 |= 0b11111; //use 32 bit mode for config
+  SPI2->CR2 = 0; //reinitialize tsize
+  SPI2->CFG1 |= 0b11111; //use 32 bit mode for config
   SPI2->CR1 |= SPI_CR1_SPE;
   SPI2->CR1 |= SPI_CR1_CSTART;
-  HAL_GPIO_WritePin(HS_ADC_RESET_GPIO_Port, HS_ADC_RESET_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GADC_RESET_GPIO_Port, GADC_RESET_Pin, GPIO_PIN_RESET);
   HAL_Delay(100);
-  HAL_GPIO_WritePin(HS_ADC_RESET_GPIO_Port, HS_ADC_RESET_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GADC_RESET_GPIO_Port, GADC_RESET_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
+  uint16_t ucGADCSPIData[2] = {0b1101000000000100, (1<<5) | (1<<4)}; //disable alarms
+  SPI2->TXDR = ((ucGADCSPIData[0] << 16) | ucGADCSPIData[1]);
+  while((SPI2->SR & SPI_SR_TXC) == 0){}; //wait for enough space to become available
+  ucGADCSPIData[0] = 0b1101000000010100; //14h
+  ucGADCSPIData[1] = 0b10; //range select +-1.5x VREF
+  SPI2->TXDR = ((ucGADCSPIData[0] << 16) | ucGADCSPIData[1]);
+  while((SPI2->SR & SPI_SR_TXC) == 0){};
+  SPI2->CR1 &= ~SPI_CR1_SPE;
+  SPI2->CFG1 &= ~0b11111;
+  SPI2->CFG1 |= 0b1111; //switch back to 16 bit transfers
 
+  HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
 
   //Enable SPI1
 //  SPI1->CR1 &=  ~SPI_CR1_SPE;
@@ -365,6 +378,7 @@ int main(void)
   SPI1->CR1 |= SPI_CR1_CSTART;
 
   //Enable SPI2
+  SPI2->CR2 = 0; //reinitialize tsize
   SPI2->CFG1 |= SPI_CFG1_RXDMAEN;
   SPI2->CR1 |= SPI_CR1_SPE;
   SPI2->CR1 |= SPI_CR1_CSTART;
