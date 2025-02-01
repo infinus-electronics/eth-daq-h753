@@ -45,7 +45,7 @@
 #define USE_ZERO_COPY  1
 #define CONTINUOUS_PING	0
 #define ADC_BUFFER_HALF_SIZE 32768
-#define AUX_ADC_BUFFER_HALF_SIZE 4096
+#define AUX_ADC_BUFFER_HALF_SIZE 16384
 
 /* USER CODE END PD */
 
@@ -418,7 +418,7 @@ int main(void)
       xTaskCreate( prvServerWorkTask, "SvrWork", mainTCP_SERVER_STACK_SIZE, NULL, 0, &xServerWorkTaskHandle );
 //      xTaskCreate ( vNotifierTask, "Notif", 200, NULL, 0, &vNotifierTaskHandle);
       xTaskCreate ( vADCTCPTask, "ADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vADCTCPTaskHandle);
-//      xTaskCreate ( vAuxADCTCPTask, "AuxADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vAuxADCTCPTaskHandle);
+      xTaskCreate ( vAuxADCTCPTask, "AuxADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vAuxADCTCPTaskHandle);
       vTaskStartScheduler();
 
   /* USER CODE END 2 */
@@ -1592,9 +1592,9 @@ static void vAuxADCTCPTask(void *pvParameters) {
     static const TickType_t xTimeOut = pdMS_TO_TICKS( 500 );
     struct freertos_sockaddr xRemoteAddress;
     BaseType_t xAlreadyTransmitted, xBytesSent;
-    size_t xLenToSend;
-    char *pcBufferToTransmit = usAuxADCDataMock0;
+    char *pcBufferToTransmit;
     const size_t xTotalLengthToSend = sizeof(usAuxADCDataMock0);
+    uint32_t ulCurrBuf;
 
     /* Remote address setup */
     memset(&xRemoteAddress, 0, sizeof(xRemoteAddress));
@@ -1632,7 +1632,20 @@ static void vAuxADCTCPTask(void *pvParameters) {
 
         configASSERT(xSocket != FREERTOS_INVALID_SOCKET);
 
-        ulTaskNotifyTakeIndexed(xADCNotifyIndex, pdTRUE, portMAX_DELAY);
+        /* Block indefinitely (without a timeout, so no need to check the function's
+	   return value) to wait for a notification. NOTE! Real applications
+	   should not block indefinitely, but instead time out occasionally in order
+	   to handle error conditions that may prevent the interrupt from sending
+	   any more notifications. */
+	xTaskNotifyWait( 0x00,               /* Don't clear any bits on entry. */
+			 0xffffffff,          /* Clear all bits on exit. */
+			&ulCurrBuf, /* Receives the notification value. */
+			portMAX_DELAY );    /* Block indefinitely. */
+	if ((ulCurrBuf & 1) != 0){
+	    pcBufferToTransmit = usAuxADCDataMock1;
+	} else {
+	    pcBufferToTransmit = usAuxADCDataMock0;
+	}
 //        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
         xAlreadyTransmitted = 0;
         xBytesSent = 0;

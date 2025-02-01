@@ -29,7 +29,7 @@
 ../Core/Src/main.c:1392:13:prvServerWorkTask	2
 ../Core/Src/main.c:1434:13:vNotifierTask	1
 ../Core/Src/main.c:1452:13:vADCTCPTask	9
-../Core/Src/main.c:1590:13:vAuxADCTCPTask	8
-../Core/Src/main.c:1719:6:MPU_Config	1
-../Core/Src/main.c:1757:6:Error_Handler	1
-../Core/Src/main.c:1776:6:assert_failed	1
+../Core/Src/main.c:1590:13:vAuxADCTCPTask	9
+../Core/Src/main.c:1732:6:MPU_Config	1
+../Core/Src/main.c:1770:6:Error_Handler	1
+../Core/Src/main.c:1789:6:assert_failed	1
