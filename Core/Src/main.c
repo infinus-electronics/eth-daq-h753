@@ -245,7 +245,7 @@ int main(void)
   //??? initializing the vars in the top just doesn't work???
   ulSevenSegD2 = 0x00FF00FF;
   ulSevenSegD1 = 0x00FF000F;
-
+  //TIM4 drives multiplexing
   TIM4->CR1 |= TIM_CR1_URS;
   TIM4->CR1 &= ~TIM_CR1_UDIS;
   TIM4->CR2 &= ~TIM_CR2_CCDS;
@@ -253,7 +253,6 @@ int main(void)
   TIM4->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E;
   TIM4->EGR |= TIM_EGR_UG | TIM_EGR_CC1G;
   TIM4->CR1 |= TIM_CR1_CEN;
-
 
   //DAC Setup
   HAL_GPIO_WritePin(DUT_DAC_RESET_GPIO_Port, DUT_DAC_RESET_Pin, GPIO_PIN_RESET);
@@ -348,6 +347,14 @@ int main(void)
   while((SPI1->SR & SPI_SR_TXC) == 0){}; //wait for enough space to become available
   SPI1->CR1 &= ~SPI_CR1_SPE;
 
+  //GADC Setup
+  SPI2->CR2 |= 0b11111; //use 32 bit mode for config
+  SPI2->CR1 |= SPI_CR1_SPE;
+  SPI2->CR1 |= SPI_CR1_CSTART;
+  HAL_GPIO_WritePin(HS_ADC_RESET_GPIO_Port, HS_ADC_RESET_Pin, GPIO_PIN_RESET);
+  HAL_Delay(100);
+  HAL_GPIO_WritePin(HS_ADC_RESET_GPIO_Port, HS_ADC_RESET_Pin, GPIO_PIN_SET);
+  HAL_Delay(100);
 
 
   //Enable SPI1
