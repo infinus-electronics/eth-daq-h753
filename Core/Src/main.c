@@ -194,6 +194,8 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  usZero = 0;
+
   memset(usADCDataMock0, 0x41, sizeof(usADCDataMock0));
   memset(usADCDataMock1, 0x42, sizeof(usADCDataMock1));
   memset(usAuxADCDataMock0, 0x43, sizeof(usAuxADCDataMock0));
@@ -240,7 +242,9 @@ int main(void)
   DMA1_Stream5->NDTR = 1;
   __DSB(); //required?
   DMA1_Stream5->CR |= DMA_SxCR_EN;
-//  GPIOD->BSRR = 0x00FF00FF;
+  //??? initializing the vars in the top just doesn't work???
+  ulSevenSegD2 = 0x00FF00FF;
+  ulSevenSegD1 = 0x00FF000F;
 
   TIM4->CR1 |= TIM_CR1_URS;
   TIM4->CR1 &= ~TIM_CR1_UDIS;
@@ -1711,6 +1715,13 @@ void MPU_Config(void)
   MPU_InitStruct.IsShareable = MPU_ACCESS_SHAREABLE;
   MPU_InitStruct.IsCacheable = MPU_ACCESS_NOT_CACHEABLE;
   MPU_InitStruct.IsBufferable = MPU_ACCESS_NOT_BUFFERABLE;
+
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
+
+  /** Initializes and configures the Region and the memory to be protected
+  */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER1;
+  MPU_InitStruct.BaseAddress = 0x30000000;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
