@@ -122,12 +122,14 @@ TaskHandle_t vAuxADCTCPTaskHandle = NULL;
 
 const UBaseType_t xADCNotifyIndex = 0; //needs configuring
 
-uint16_t usZero __attribute__((section(".ram3_data"))) = 0 ; //DMA cannot access DTCM, so declare here
+uint16_t usZero __attribute__((section(".ram2_data"))) = 0 ; //DMA cannot access DTCM, so declare here
 uint16_t usADCDataMock0[ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 uint16_t usADCDataMock1[ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 uint16_t usAuxADCDataMock0[AUX_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 uint16_t usAuxADCDataMock1[AUX_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 
+uint32_t ulSevenSegD1 __attribute__((section(".ram2_data"))) = 0xFF0000;
+uint32_t ulSevenSegD2 __attribute__((section(".ram2_data"))) = 0xFF0000; //display 8.8.
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -220,15 +222,32 @@ int main(void)
   MX_SPI3_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
-  MX_TIM2_Init();
+  // MX_TIM2_Init();
   MX_I2C4_Init();
   MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
 
   //7 Segment Setup
+  //TIM4 CH1
+  DMA1_Stream4->M0AR = &ulSevenSegD1;
+  DMA1_Stream4->PAR = &(GPIOD->BSRR); //top 16 bits are reset, bottom 16 bits are set, set has priority if both bits set
+  DMA1_Stream4->NDTR = 1;
+  __DSB(); //required?
+  DMA1_Stream4->CR |= DMA_SxCR_EN;
+  //TIM4 UP
+  DMA1_Stream5->M0AR = &ulSevenSegD2;
+  DMA1_Stream5->PAR = &(GPIOD->BSRR);
+  DMA1_Stream5->NDTR = 1;
+  __DSB(); //required?
+  DMA1_Stream5->CR |= DMA_SxCR_EN;
+//  GPIOD->BSRR = 0x00FF00FF;
+
   TIM4->CR1 |= TIM_CR1_URS;
   TIM4->CR1 &= ~TIM_CR1_UDIS;
+  TIM4->CR2 &= ~TIM_CR2_CCDS;
+  TIM4->DIER |= TIM_DIER_UDE | TIM_DIER_CC1DE;
   TIM4->CCER |= TIM_CCER_CC1E | TIM_CCER_CC2E;
+  TIM4->EGR |= TIM_EGR_UG | TIM_EGR_CC1G;
   TIM4->CR1 |= TIM_CR1_CEN;
 
 
@@ -880,7 +899,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 999;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 49999;
+  htim4.Init.Period = 1999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -903,7 +922,7 @@ static void MX_TIM4_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 24999;
+  sConfigOC.Pulse = 999;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
