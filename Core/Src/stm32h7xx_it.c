@@ -59,15 +59,19 @@ extern void xPortSysTickHandler();
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_spi1_rx;
 extern DMA_HandleTypeDef hdma_spi2_rx;
+extern DMA_HandleTypeDef hdma_spi3_rx;
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
+extern SPI_HandleTypeDef hspi3;
 extern DMA_HandleTypeDef hdma_tim1_up;
 extern DMA_HandleTypeDef hdma_tim3_up;
 extern DMA_HandleTypeDef hdma_tim4_ch1;
 extern DMA_HandleTypeDef hdma_tim4_up;
+extern DMA_HandleTypeDef hdma_tim5_up;
 /* USER CODE BEGIN EV */
 extern TaskHandle_t vADCTCPTaskHandle;
 extern TaskHandle_t vAuxADCTCPTaskHandle;
+extern TaskHandle_t vTCADCTCPTaskHandle;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -313,6 +317,20 @@ void DMA1_Stream5_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles DMA1 stream6 global interrupt.
+  */
+void DMA1_Stream6_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Stream6_IRQn 0 */
+
+  /* USER CODE END DMA1_Stream6_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_tim5_up);
+  /* USER CODE BEGIN DMA1_Stream6_IRQn 1 */
+
+  /* USER CODE END DMA1_Stream6_IRQn 1 */
+}
+
+/**
   * @brief This function handles SPI1 global interrupt.
   */
 void SPI1_IRQHandler(void)
@@ -338,6 +356,63 @@ void SPI2_IRQHandler(void)
   /* USER CODE BEGIN SPI2_IRQn 1 */
 
   /* USER CODE END SPI2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA1 stream7 global interrupt.
+  */
+void DMA1_Stream7_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Stream7_IRQn 0 */
+  BaseType_t xHigherPriorityTaskWoken;
+  uint32_t ulCurrBuf = 0;
+  //SPI1 Stream
+  if (DMA1->HISR & DMA_FLAG_TCIF3_7){
+      uint32_t status = DMA1_Stream7->CR;
+      if ((status & DMA_SxCR_CT_Msk)!=0){ //current Transmittable Buffer
+      ulCurrBuf = 0;
+      } else {
+      ulCurrBuf = 1;
+      }
+
+    }
+  /* USER CODE END DMA1_Stream7_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_spi3_rx);
+  /* USER CODE BEGIN DMA1_Stream7_IRQn 1 */
+  /* xHigherPriorityTaskWoken must be initialised to pdFALSE. If calling
+     xTaskNotifyFromISR() unblocks the handling task, and the priority of
+     the handling task is higher than the priority of the currently running task,
+     then xHigherPriorityTaskWoken will automatically get set to pdTRUE. */
+  xHigherPriorityTaskWoken = pdFALSE;
+  /* Unblock the handling task so the task can perform any processing necessitated
+     by the interrupt. xHandlingTask is the task's handle, which was obtained
+     when the task was created. The handling task's 0th notification value
+     is bitwise ORed with the interrupt status - ensuring bits that are already
+     set are not overwritten. */
+  xTaskNotifyFromISR( vTCADCTCPTaskHandle,
+			 ulCurrBuf,
+			 eSetBits,
+			 &xHigherPriorityTaskWoken );
+
+  /* Force a context switch if xHigherPriorityTaskWoken is now set to pdTRUE.
+     The macro used to do this is dependent on the port and may be called
+     portEND_SWITCHING_ISR. */
+  portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+  /* USER CODE END DMA1_Stream7_IRQn 1 */
+}
+
+/**
+  * @brief This function handles SPI3 global interrupt.
+  */
+void SPI3_IRQHandler(void)
+{
+  /* USER CODE BEGIN SPI3_IRQn 0 */
+
+  /* USER CODE END SPI3_IRQn 0 */
+  HAL_SPI_IRQHandler(&hspi3);
+  /* USER CODE BEGIN SPI3_IRQn 1 */
+
+  /* USER CODE END SPI3_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

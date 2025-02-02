@@ -46,6 +46,7 @@
 #define CONTINUOUS_PING	0
 #define ADC_BUFFER_HALF_SIZE 32768
 #define AUX_ADC_BUFFER_HALF_SIZE 16384
+#define TC_ADC_BUFFER_HALF_SIZE 64
 
 /* USER CODE END PD */
 
@@ -83,19 +84,23 @@ SPI_HandleTypeDef hspi2;
 SPI_HandleTypeDef hspi3;
 DMA_HandleTypeDef hdma_spi1_rx;
 DMA_HandleTypeDef hdma_spi2_rx;
+DMA_HandleTypeDef hdma_spi3_rx;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim5;
 DMA_HandleTypeDef hdma_tim1_up;
 DMA_HandleTypeDef hdma_tim3_up;
 DMA_HandleTypeDef hdma_tim4_ch1;
 DMA_HandleTypeDef hdma_tim4_up;
+DMA_HandleTypeDef hdma_tim5_up;
 
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
+//FreeRTOS and Networking
 const uint8_t ucIPAddress[ 4 ] = { configIP_ADDR0, configIP_ADDR1, configIP_ADDR2, configIP_ADDR3 };
 const uint8_t ucNetMask[ 4 ] = { configNET_MASK0, configNET_MASK1, configNET_MASK2, configNET_MASK3 };
 const uint8_t ucGatewayAddress[ 4 ] = { configGATEWAY_ADDR0, configGATEWAY_ADDR1, configGATEWAY_ADDR2, configGATEWAY_ADDR3 };
@@ -104,12 +109,12 @@ const uint8_t ucMACAddress[ 6 ] = { configMAC_ADDR0, configMAC_ADDR1, configMAC_
 const uint8_t ucServerIPAddress[ 4 ] = { 192, 168, 1, 3 };
 const uint16_t usADCPort = 5555;
 const uint16_t usAuxADCPort = 5556;
+const uint16_t usTCADCPort = 5557;
 
 /* There is only 1 physical interface. */
 NetworkInterface_t xInterfaces[ 1 ];
 /* It will have several end-points. */
 NetworkEndPoint_t xEndPoints[ 4 ];
-
 
 static BaseType_t xTasksAlreadyCreated = pdFALSE;
 static BaseType_t xDoCreateSockets;
@@ -119,15 +124,23 @@ static TaskHandle_t xServerWorkTaskHandle = NULL;
 static TaskHandle_t vNotifierTaskHandle = NULL;
 TaskHandle_t vADCTCPTaskHandle = NULL;
 TaskHandle_t vAuxADCTCPTaskHandle = NULL;
+TaskHandle_t vTCADCTCPTaskHandle = NULL;
 
 const UBaseType_t xADCNotifyIndex = 0; //needs configuring
 
+//HS ADC
 uint16_t usZero __attribute__((section(".ram2_data"))) = 0 ; //DMA cannot access DTCM, so declare here
 uint16_t usADCDataMock0[ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 uint16_t usADCDataMock1[ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
+//GADC
 uint16_t usAuxADCDataMock0[AUX_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 uint16_t usAuxADCDataMock1[AUX_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
+//TC ADC
+uint16_t usTCADCConfig[2] __attribute__((section(".ram2_data")));
+uint16_t usTCADCData0[TC_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
+uint16_t usTCADCData1[TC_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 
+//7 Segment Display
 uint32_t ulSevenSegD1 __attribute__((section(".ram2_data"))) = 0xFF0000;
 uint32_t ulSevenSegD2 __attribute__((section(".ram2_data"))) = 0xFF0000; //display 8.8.
 /* USER CODE END PV */
@@ -148,6 +161,7 @@ static void MX_TIM3_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_I2C4_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 static void vHeapInit(void);
 extern void vStartHighResolutionTimer(void);
@@ -158,6 +172,7 @@ static void prvServerWorkTask( void *pvParameters );
 static void vNotifierTask (void *pvParameters);
 static void vADCTCPTask (void *pvParameters);
 static void vAuxADCTCPTask (void *pvParameters);
+static void vTCADCTCPTask (void *pvParameters);
 
 /* USER CODE END PFP */
 
@@ -227,6 +242,7 @@ int main(void)
   // MX_TIM2_Init();
   MX_I2C4_Init();
   MX_TIM4_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 
   //7 Segment Setup
@@ -368,6 +384,38 @@ int main(void)
   SPI2->CFG1 &= ~0b11111;
   SPI2->CFG1 |= 0b1111; //switch back to 16 bit transfers
 
+  //TC ADC SETUP
+  //interleave temp sensor and internal ADC
+  usTCADCConfig[0] = 0b1000101110001010; //FSR 0.256mV, 128SPS, Single Conversion, Start Conversion, Default Inputs
+  usTCADCConfig[1] = 0b1000101110011010; //same as above, use internal temp sensor
+  //TIM5 UP
+  DMA1_Stream6->M0AR = usTCADCConfig;
+  DMA1_Stream6->PAR = &(SPI3->TXDR);
+  DMA1_Stream6->NDTR = 2;
+  __DSB(); //required?
+  DMA1_Stream6->CR |= DMA_SxCR_EN;
+  //SPI3 RX Stream
+  DMA1_Stream7->M0AR = usTCADCData0;
+  DMA1_Stream7->M1AR = usTCADCData1;
+  DMA1_Stream7->PAR = &(SPI3->RXDR);
+  DMA1_Stream7->CR |= DMA_DOUBLE_BUFFER_M0;
+  DMA1_Stream7->NDTR = TC_ADC_BUFFER_HALF_SIZE;
+//  DMA1_Stream0->CR |= DMA_SxCR_TCIE | DMA_SxCR_HTIE | DMA_SxCR_TEIE | DMA_SxCR_DMEIE;
+  DMA1_Stream7->CR |= DMA_SxCR_TCIE;
+  __DSB(); //required?
+  DMA1_Stream7->CR |= DMA_SxCR_EN;
+  //SPI3 Config
+  SPI3->CR2 = 0; //reinitialize tsize
+  SPI3->CFG1 |= SPI_CFG1_RXDMAEN;
+  SPI3->CR1 |= SPI_CR1_SPE;
+  SPI3->CR1 |= SPI_CR1_CSTART;
+  //enable TIM5 (SPI3 TX)
+  TIM5->CR1 |= TIM_CR1_URS;
+  TIM5->CR1 &= ~TIM_CR1_UDIS;
+  TIM5->DIER |= TIM_DMA_UPDATE;
+  TIM5->EGR |= TIM_EGR_UG;
+  TIM5->CR1 |= TIM_CR1_CEN;
+
   HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
 
   //Enable SPI1
@@ -397,6 +445,7 @@ int main(void)
   TIM3->EGR |= TIM_EGR_UG;
   TIM3->CR1 |= TIM_CR1_CEN;
 
+
   /* Initialise the interface descriptor for WinPCap for example. */
      pxSTM32H_FillInterfaceDescriptor( 0, &( xInterfaces[ 0 ] ) );
 
@@ -417,8 +466,10 @@ int main(void)
 
       xTaskCreate( prvServerWorkTask, "SvrWork", mainTCP_SERVER_STACK_SIZE, NULL, 0, &xServerWorkTaskHandle );
 //      xTaskCreate ( vNotifierTask, "Notif", 200, NULL, 0, &vNotifierTaskHandle);
-      xTaskCreate ( vADCTCPTask, "ADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vADCTCPTaskHandle);
-      xTaskCreate ( vAuxADCTCPTask, "AuxADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vAuxADCTCPTaskHandle);
+      xTaskCreate ( vADCTCPTask, "HSADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vADCTCPTaskHandle);
+      xTaskCreate ( vAuxADCTCPTask, "GADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vAuxADCTCPTaskHandle);
+      xTaskCreate ( vTCADCTCPTask, "TCADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vTCADCTCPTaskHandle);
+
       vTaskStartScheduler();
 
   /* USER CODE END 2 */
@@ -736,11 +787,11 @@ static void MX_SPI3_Init(void)
   hspi3.Instance = SPI3;
   hspi3.Init.Mode = SPI_MODE_MASTER;
   hspi3.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi3.Init.DataSize = SPI_DATASIZE_4BIT;
+  hspi3.Init.DataSize = SPI_DATASIZE_16BIT;
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi3.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -750,8 +801,8 @@ static void MX_SPI3_Init(void)
   hspi3.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi3.Init.TxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
   hspi3.Init.RxCRCInitializationPattern = SPI_CRC_INITIALIZATION_ALL_ZERO_PATTERN;
-  hspi3.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
-  hspi3.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_00CYCLE;
+  hspi3.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_02CYCLE;
+  hspi3.Init.MasterInterDataIdleness = SPI_MASTER_INTERDATA_IDLENESS_02CYCLE;
   hspi3.Init.MasterReceiverAutoSusp = SPI_MASTER_RX_AUTOSUSP_DISABLE;
   hspi3.Init.MasterKeepIOState = SPI_MASTER_KEEP_IO_STATE_DISABLE;
   hspi3.Init.IOSwap = SPI_IO_SWAP_DISABLE;
@@ -967,6 +1018,51 @@ static void MX_TIM4_Init(void)
 }
 
 /**
+  * @brief TIM5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM5_Init(void)
+{
+
+  /* USER CODE BEGIN TIM5_Init 0 */
+
+  /* USER CODE END TIM5_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM5_Init 1 */
+
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 999;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 3124;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM5_Init 2 */
+
+  /* USER CODE END TIM5_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -1042,6 +1138,12 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 7, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 7, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+  /* DMA1_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 7, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream7_IRQn);
 
 }
 
@@ -1645,6 +1747,144 @@ static void vAuxADCTCPTask(void *pvParameters) {
 	    pcBufferToTransmit = usAuxADCDataMock1;
 	} else {
 	    pcBufferToTransmit = usAuxADCDataMock0;
+	}
+//        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+        xAlreadyTransmitted = 0;
+        xBytesSent = 0;
+//        FreeRTOS_printf(("Start Mock Transmission \n"));
+
+        if(FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) == 0) {
+        while( xAlreadyTransmitted < xTotalLengthToSend )
+                {
+                    BaseType_t xAvlSpace = 0;
+                    BaseType_t xBytesToSend = 0;
+                    uint8_t *pucTCPZeroCopyStrmBuffer;
+
+                    /* This RTOS task is going to send using the zero copy interface.  The
+                       data being sent is therefore written directly into the TCP TX stream
+                       buffer that is passed into, rather than copied into, the FreeRTOS_send()
+                       function. */
+
+                    /* Obtain the pointer to the current head of sockets TX stream buffer
+                       using FreeRTOS_get_tx_head */
+                    pucTCPZeroCopyStrmBuffer = FreeRTOS_get_tx_head( xSocket, &xAvlSpace );
+//                    FreeRTOS_printf(("xSocket Available Space: %d \n", xAvlSpace));
+
+                    if(pucTCPZeroCopyStrmBuffer)
+                    {
+                        /* Check if there is enough space in the stream buffer to place
+                           the entire data. */
+                        if((xTotalLengthToSend - xAlreadyTransmitted) > xAvlSpace)
+                        {
+                            xBytesToSend = xAvlSpace;
+                        }
+                        else
+                        {
+                            xBytesToSend = (xTotalLengthToSend - xAlreadyTransmitted);
+                        }
+                        memcpy( pucTCPZeroCopyStrmBuffer,
+                                ( void * ) (( (uint8_t *) pcBufferToTransmit ) + xAlreadyTransmitted),
+                                xBytesToSend);
+                    }
+                    else
+                    {
+                        /* Error - break out of the loop for graceful socket close. */
+                        break;
+                    }
+
+                    /* Call the FreeRTOS_send with buffer as NULL indicating to the stack
+                       that its a zero copy */
+                    xBytesSent = FreeRTOS_send( /* The socket being sent to. */
+                                                xSocket,
+                                                /* The data being sent. */
+                                                NULL,
+                                                /* The remaining length of data to send. */
+                                                xBytesToSend,
+                                                /* ulFlags. */
+                                                0 );
+
+                    if( xBytesSent >= 0 )
+                    {
+                        /* Data was sent successfully. */
+                        xAlreadyTransmitted += xBytesSent;
+                    }
+                    else
+                    {
+                        /* Error - break out of the loop for graceful socket close. */
+                        break;
+                    }
+                }
+        }
+
+
+        /* Cleanup after each transmission */
+        FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
+        while(FreeRTOS_recv(xSocket, pcBufferToTransmit, xTotalLengthToSend, 0) >= 0) {
+            vTaskDelay(pdMS_TO_TICKS(1));
+        }
+        FreeRTOS_closesocket(xSocket);
+//        FreeRTOS_printf(("End Mock Transmission \n"));
+    }
+}
+
+static void vTCADCTCPTask(void *pvParameters) {
+    Socket_t xSocket;
+    static const TickType_t xTimeOut = pdMS_TO_TICKS( 500 );
+    struct freertos_sockaddr xRemoteAddress;
+    BaseType_t xAlreadyTransmitted, xBytesSent;
+    char *pcBufferToTransmit;
+    const size_t xTotalLengthToSend = sizeof(usTCADCData0);
+    uint32_t ulCurrBuf;
+
+    /* Remote address setup */
+    memset(&xRemoteAddress, 0, sizeof(xRemoteAddress));
+    xRemoteAddress.sin_port = FreeRTOS_htons(usTCADCPort);
+    xRemoteAddress.sin_address.ulIP_IPv4 = FreeRTOS_inet_addr_quick(ucServerIPAddress[0], ucServerIPAddress[1], ucServerIPAddress[2], ucServerIPAddress[3]);
+    xRemoteAddress.sin_family = FREERTOS_AF_INET4;
+
+    for(;;) {
+        /* Create new socket for each transmission */
+	xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
+	  WinProperties_t xWinProperties;
+
+	  memset(&xWinProperties, '\0', sizeof xWinProperties);
+
+	  xWinProperties.lTxBufSize   = ipconfigIPERF_TX_BUFSIZE;	/* Units of bytes. */
+	  xWinProperties.lTxWinSize   = ipconfigIPERF_TX_WINSIZE;	/* Size in units of MSS */
+	  xWinProperties.lRxBufSize   = ipconfigIPERF_RX_BUFSIZE;	/* Units of bytes. */
+	  xWinProperties.lRxWinSize   = ipconfigIPERF_RX_WINSIZE; /* Size in units of MSS */
+
+	  /* Set send and receive time outs. */
+	  FreeRTOS_setsockopt( xSocket,
+			     0,
+			     FREERTOS_SO_RCVTIMEO,
+			     &xTimeOut,
+			     sizeof( xTimeOut ) );
+
+	  FreeRTOS_setsockopt( xSocket,
+			     0,
+			     FREERTOS_SO_SNDTIMEO,
+			     &xTimeOut,
+			     sizeof( xTimeOut ) );
+
+	  FreeRTOS_setsockopt( xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, ( void * ) &xWinProperties, sizeof( xWinProperties ) );
+
+
+        configASSERT(xSocket != FREERTOS_INVALID_SOCKET);
+
+        /* Block indefinitely (without a timeout, so no need to check the function's
+	   return value) to wait for a notification. NOTE! Real applications
+	   should not block indefinitely, but instead time out occasionally in order
+	   to handle error conditions that may prevent the interrupt from sending
+	   any more notifications. */
+	xTaskNotifyWait( 0x00,               /* Don't clear any bits on entry. */
+			 0xffffffff,          /* Clear all bits on exit. */
+			&ulCurrBuf, /* Receives the notification value. */
+			portMAX_DELAY );    /* Block indefinitely. */
+	if ((ulCurrBuf & 1) != 0){
+	    pcBufferToTransmit = usTCADCData1;
+	} else {
+	    pcBufferToTransmit = usTCADCData0;
 	}
 //        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
         xAlreadyTransmitted = 0;
