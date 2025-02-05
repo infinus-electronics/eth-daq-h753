@@ -47,6 +47,7 @@
 #define ADC_BUFFER_HALF_SIZE 32768
 #define AUX_ADC_BUFFER_HALF_SIZE 16384
 #define TC_ADC_BUFFER_HALF_SIZE 64
+#define CMD_BUFFER_SIZE 128
 
 /* USER CODE END PD */
 
@@ -110,6 +111,7 @@ const uint8_t ucServerIPAddress[ 4 ] = { 192, 168, 1, 3 };
 const uint16_t usADCPort = 5555;
 const uint16_t usAuxADCPort = 5556;
 const uint16_t usTCADCPort = 5557;
+const uint16_t usCommandPort = 5001;
 
 /* There is only 1 physical interface. */
 NetworkInterface_t xInterfaces[ 1 ];
@@ -125,6 +127,7 @@ static TaskHandle_t vNotifierTaskHandle = NULL;
 TaskHandle_t vADCTCPTaskHandle = NULL;
 TaskHandle_t vAuxADCTCPTaskHandle = NULL;
 TaskHandle_t vTCADCTCPTaskHandle = NULL;
+static TaskHandle_t vCommandServerTaskHandle = NULL;
 
 const UBaseType_t xADCNotifyIndex = 0; //needs configuring
 
@@ -173,6 +176,8 @@ static void vNotifierTask (void *pvParameters);
 static void vADCTCPTask (void *pvParameters);
 static void vAuxADCTCPTask (void *pvParameters);
 static void vTCADCTCPTask (void *pvParameters);
+static void vCommandServerTask (void *pvParameters);
+static void prvCommandHandlerTask (void *pvParameters);
 
 /* USER CODE END PFP */
 
@@ -469,7 +474,7 @@ int main(void)
       xTaskCreate ( vADCTCPTask, "HSADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vADCTCPTaskHandle);
       xTaskCreate ( vAuxADCTCPTask, "GADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vAuxADCTCPTaskHandle);
       xTaskCreate ( vTCADCTCPTask, "TCADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vTCADCTCPTaskHandle);
-
+      xTaskCreate ( vCommandServerTask, "CommandServer", mainTCP_SERVER_STACK_SIZE, NULL, tskIDLE_PRIORITY, &vCommandServerTaskHandle);
       vTaskStartScheduler();
 
   /* USER CODE END 2 */
@@ -1964,6 +1969,132 @@ static void vTCADCTCPTask(void *pvParameters) {
 //        FreeRTOS_printf(("End Mock Transmission \n"));
     }
 }
+
+void vCommandServerTask( void *pvParameters )
+{
+  struct freertos_sockaddr xClient, xBindAddress;
+  Socket_t xListeningSocket, xConnectedSocket;
+  socklen_t xSize = sizeof( xClient );
+  static const TickType_t xReceiveTimeOut = pdMS_TO_TICKS( 500 );
+  const BaseType_t xBacklog = 20;
+
+      /* Attempt to open the socket. */
+      xListeningSocket = FreeRTOS_socket( FREERTOS_AF_INET4, /* Or FREERTOS_AF_INET6 for IPv6. */
+					  FREERTOS_SOCK_STREAM,  /* SOCK_STREAM for TCP. */
+					  FREERTOS_IPPROTO_TCP );
+
+      /* Check the socket was created. */
+      configASSERT( xListeningSocket != FREERTOS_INVALID_SOCKET );
+
+      /* If FREERTOS_SO_RCVBUF or FREERTOS_SO_SNDBUF are to be used with
+	 FreeRTOS_setsockopt() to change the buffer sizes from their default then do
+	 it here!. (see the FreeRTOS_setsockopt() documentation. */
+
+      /* If ipconfigUSE_TCP_WIN is set to 1 and FREERTOS_SO_WIN_PROPERTIES is to
+	 be used with FreeRTOS_setsockopt() to change the sliding window size from
+	 its default then do it here! (see the FreeRTOS_setsockopt()
+	 documentation. */
+
+      /* Set a time out so accept() will just wait for a connection. */
+      FreeRTOS_setsockopt( xListeningSocket,
+			   0,
+			   FREERTOS_SO_RCVTIMEO,
+			   &xReceiveTimeOut,
+			   sizeof( xReceiveTimeOut ) );
+
+      /* Set the listening port to 10000. */
+      memset( &xBindAddress, 0, sizeof(xBindAddress) );
+      xBindAddress.sin_port = usCommandPort;
+      xBindAddress.sin_port = FreeRTOS_htons( xBindAddress.sin_port );
+      xBindAddress.sin_family = FREERTOS_AF_INET4; /* FREERTOS_AF_INET6 to be used for IPv6 */
+
+      /* Bind the socket to the port that the client RTOS task will send to. */
+      FreeRTOS_bind( xListeningSocket, &xBindAddress, sizeof( xBindAddress ) );
+
+      /* Set the socket into a listening state so it can accept connections.
+	 The maximum number of simultaneous connections is limited to 20. */
+      FreeRTOS_listen( xListeningSocket, xBacklog );
+
+      for( ;; )
+      {
+	  /* Wait for incoming connections. */
+	  xConnectedSocket = FreeRTOS_accept( xListeningSocket, &xClient, &xSize );
+	  configASSERT( xConnectedSocket != FREERTOS_INVALID_SOCKET );
+
+	  /* Spawn a RTOS task to handle the connection. */
+	  xTaskCreate( prvCommandHandlerTask,
+		       "CommandHandler",
+		       mainTCP_SERVER_STACK_SIZE,
+		       ( void * ) xConnectedSocket,
+		       tskIDLE_PRIORITY,
+		       NULL );
+      }
+}
+
+
+static void prvCommandHandlerTask( void *pvParameters )
+{
+  Socket_t xSocket;
+  static char cRxedData[ CMD_BUFFER_SIZE ];
+  BaseType_t lBytesReceived;
+
+      /* It is assumed the socket has already been created and connected before
+   being passed into this RTOS task using the RTOS task's parameter. */
+      xSocket = ( Socket_t ) pvParameters;
+
+      for( ;; )
+      {
+	  /* Receive another block of data into the cRxedData buffer. */
+	  lBytesReceived = FreeRTOS_recv( xSocket, &cRxedData, CMD_BUFFER_SIZE, 0 );
+
+	  if( lBytesReceived > 0 )
+	  {
+	      /* Data was received, process it here. */
+	      //prvProcessData( cRxedData, lBytesReceived );
+	      cRxedData[lBytesReceived] = 0; //ensure null terminated string
+	      if (strncmp(cRxedData, "test", 4) == 0){
+		  ulSevenSegD1 = 0xFF00FF;
+	      }
+	  }
+	  else if( lBytesReceived == 0 )
+	  {
+	      /* No data was received, but FreeRTOS\_recv() did not return an error.
+		 Timeout? */
+	  }
+	  else
+	  {
+	      /* Error (maybe the connected socket already shut down the socket?).
+		 Attempt graceful shutdown. */
+	      FreeRTOS_shutdown( xSocket, FREERTOS_SHUT_RDWR );
+	      break;
+	  }
+      }
+
+      /* The RTOS task will get here if an error is received on a read. Ensure the
+   socket has shut down (indicated by FreeRTOS\_recv() returning a -pdFREERTOS\_ERRNO\_EINVAL
+   error before closing the socket). */
+
+      while( FreeRTOS_recv( xSocket, &usZero, 1, 0 ) >= 0 )
+      {
+	  /* Wait for shutdown to complete. If a receive block time is used then
+	     this delay will not be necessary as FreeRTOS\_recv() will place the RTOS task
+	     into the Blocked state anyway. */
+	  vTaskDelay( pdTICKS_TO_MS( 1 ) );
+
+	  /* Note - real applications should implement a timeout here, not just
+	     loop forever. */
+      }
+
+      /* Shutdown is complete and the socket can be safely closed. */
+      FreeRTOS_closesocket( xSocket );
+
+      /* Must not drop off the end of the RTOS task - delete the RTOS task. */
+      vTaskDelete(NULL);
+}
+
+
+
+
 
 /* USER CODE END 4 */
 
