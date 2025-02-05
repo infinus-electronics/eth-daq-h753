@@ -292,11 +292,33 @@ int main(void)
 //          I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
 //          return;  // Abort on failure
 //      }
-  I2C4->TXDR = 0b00111001; //write to both registers
+  I2C4->TXDR = 0b00110001; //write 1V = 1638 to DAC A, left justified 12 bit to 16 bit
   while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
-  I2C4->TXDR = 0; //MSB
+  I2C4->TXDR = 0x66; //MSB
   while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
-  I2C4->TXDR = 4; //LSB
+  I2C4->TXDR = 0x60; //LSB
+  while( (I2C4->ISR & (I2C_ISR_TXE)) == 0 );
+  // Check if NACK occurred
+  if (I2C4->ISR & I2C_ISR_NACKF) {
+      // Handle error (e.g., reset I2C)
+      I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
+  }
+
+  I2C4->CR2 = ( (0b0001100 << 1) & 0xFFFE )  // 7-bit address
+                 | (3 << 16)                   // NBYTES = 2
+                 | (0 << 10)                   // Write direction (0 = write)
+                 | I2C_CR2_AUTOEND             // Auto generate STOP
+                 | I2C_CR2_START;              // Generate START
+  while( (I2C4->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) == 0 );
+//      if (I2C4->ISR & I2C_ISR_NACKF) {
+//          I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
+//          return;  // Abort on failure
+//      }
+  I2C4->TXDR = 0b00111000; //write 0.4V = 656 to DAC B, left justified 12 bit to 16 bit
+  while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
+  I2C4->TXDR = 0x29; //MSB
+  while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
+  I2C4->TXDR = 0x00; //LSB
   while( (I2C4->ISR & (I2C_ISR_TXE)) == 0 );
   // Check if NACK occurred
   if (I2C4->ISR & I2C_ISR_NACKF) {
