@@ -2075,13 +2075,13 @@ static void prvCommandHandlerTask( void *pvParameters )
 		  FreeRTOS_printf(("Received Heat Command\n"));
 		  HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
 		  HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_SET);
-		  ulSevenSegD1 |= 1<<8; //turn first digit DP on
+		  ulSevenSegD1 |= 1<<5; //turn first digit DP on
 	      }
 	      if (strncmp(cRxedData, "COOL", 4) == 0){
 		  FreeRTOS_printf(("Received Cool Command\n"));
 		  HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
 		  HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
-		  ulSevenSegD1 &= ~(1<<8); //turn first digit DP off
+		  ulSevenSegD1 &= ~(1<<5); //turn first digit DP off
 	      }
 	  }
 	  else if( lBytesReceived == 0 )
