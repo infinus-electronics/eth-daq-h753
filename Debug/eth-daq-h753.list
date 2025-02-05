@@ -820,7 +820,7 @@ __STATIC_FORCEINLINE void __DSB(void)
 //          I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
 //          return;  // Abort on failure
 //      }
-  I2C4->TXDR = 0b00110001; //write 1V = 1638 to DAC A, left justified 12 bit to 16 bit
+  I2C4->TXDR = 0b00110001; //write 2V = 3276 to DAC A, left justified 12 bit to 16 bit
  80008e2:	4b5a      	ldr	r3, [pc, #360]	@ (8000a4c <main+0x3ac>)
  80008e4:	2231      	movs	r2, #49	@ 0x31
  80008e6:	629a      	str	r2, [r3, #40]	@ 0x28
@@ -831,9 +831,9 @@ __STATIC_FORCEINLINE void __DSB(void)
  80008ee:	f003 0302 	and.w	r3, r3, #2
  80008f2:	2b00      	cmp	r3, #0
  80008f4:	d0f9      	beq.n	80008ea <main+0x24a>
-  I2C4->TXDR = 0x66; //MSB
+  I2C4->TXDR = 0xCC; //MSB
  80008f6:	4b55      	ldr	r3, [pc, #340]	@ (8000a4c <main+0x3ac>)
- 80008f8:	2266      	movs	r2, #102	@ 0x66
+ 80008f8:	22cc      	movs	r2, #204	@ 0xcc
  80008fa:	629a      	str	r2, [r3, #40]	@ 0x28
   while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
  80008fc:	bf00      	nop
@@ -842,9 +842,9 @@ __STATIC_FORCEINLINE void __DSB(void)
  8000902:	f003 0302 	and.w	r3, r3, #2
  8000906:	2b00      	cmp	r3, #0
  8000908:	d0f9      	beq.n	80008fe <main+0x25e>
-  I2C4->TXDR = 0x60; //LSB
+  I2C4->TXDR = 0xC0; //LSB
  800090a:	4b50      	ldr	r3, [pc, #320]	@ (8000a4c <main+0x3ac>)
- 800090c:	2260      	movs	r2, #96	@ 0x60
+ 800090c:	22c0      	movs	r2, #192	@ 0xc0
  800090e:	629a      	str	r2, [r3, #40]	@ 0x28
   while( (I2C4->ISR & (I2C_ISR_TXE)) == 0 );
  8000910:	bf00      	nop
@@ -1495,8 +1495,8 @@ __STATIC_FORCEINLINE void __DSB(void)
  8000db2:	2110      	movs	r1, #16
  8000db4:	485f      	ldr	r0, [pc, #380]	@ (8000f34 <main+0x894>)
  8000db6:	f01b ff85 	bl	801ccc4 <HAL_GPIO_WritePin>
-  HAL_GPIO_WritePin(DUT_VGS_IDLE_SEL_GPIO_Port, DUT_VGS_IDLE_SEL_Pin, GPIO_PIN_RESET);
- 8000dba:	2200      	movs	r2, #0
+  HAL_GPIO_WritePin(DUT_VGS_IDLE_SEL_GPIO_Port, DUT_VGS_IDLE_SEL_Pin, GPIO_PIN_SET);
+ 8000dba:	2201      	movs	r2, #1
  8000dbc:	2108      	movs	r1, #8
  8000dbe:	485d      	ldr	r0, [pc, #372]	@ (8000f34 <main+0x894>)
  8000dc0:	f01b ff80 	bl	801ccc4 <HAL_GPIO_WritePin>

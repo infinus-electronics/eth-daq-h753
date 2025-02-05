@@ -292,11 +292,11 @@ int main(void)
 //          I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
 //          return;  // Abort on failure
 //      }
-  I2C4->TXDR = 0b00110001; //write 1V = 1638 to DAC A, left justified 12 bit to 16 bit
+  I2C4->TXDR = 0b00110001; //write 2V = 3276 to DAC A, left justified 12 bit to 16 bit
   while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
-  I2C4->TXDR = 0x66; //MSB
+  I2C4->TXDR = 0xCC; //MSB
   while( (I2C4->ISR & (I2C_ISR_TXIS)) == 0 );
-  I2C4->TXDR = 0x60; //LSB
+  I2C4->TXDR = 0xC0; //LSB
   while( (I2C4->ISR & (I2C_ISR_TXE)) == 0 );
   // Check if NACK occurred
   if (I2C4->ISR & I2C_ISR_NACKF) {
@@ -446,7 +446,7 @@ int main(void)
   HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(DUT_VGS_IDLE_SEL_GPIO_Port, DUT_VGS_IDLE_SEL_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(DUT_VGS_IDLE_SEL_GPIO_Port, DUT_VGS_IDLE_SEL_Pin, GPIO_PIN_SET);
 
   //Enable SPI1
 //  SPI1->CR1 &=  ~SPI_CR1_SPE;
