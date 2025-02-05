@@ -264,8 +264,8 @@ int main(void)
   __DSB(); //required?
   DMA1_Stream5->CR |= DMA_SxCR_EN;
   //??? initializing the vars in the top just doesn't work???
-  ulSevenSegD2 = 0x00FF00FF;
-  ulSevenSegD1 = 0x00FF000F;
+  ulSevenSegD2 = 0x00FF0000;
+  ulSevenSegD1 = 0x00FF0000;
   //TIM4 drives multiplexing
   TIM4->CR1 |= TIM_CR1_URS;
   TIM4->CR1 &= ~TIM_CR1_UDIS;
@@ -422,6 +422,9 @@ int main(void)
   TIM5->CR1 |= TIM_CR1_CEN;
 
   HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(DUT_VGS_IDLE_SEL_GPIO_Port, DUT_VGS_IDLE_SEL_Pin, GPIO_PIN_RESET);
 
   //Enable SPI1
 //  SPI1->CR1 &=  ~SPI_CR1_SPE;
@@ -1172,7 +1175,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, DUT_HVDC_ISOLATE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, DUT_HVDC_ENABLE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GADC_RESET_Pin|DUT_DAC_LDAC_Pin|DUT_DAC_RESET_Pin|GPIO_PIN_0
@@ -1183,7 +1186,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, HS_ADC_START_Pin|HS_ADC_RESET_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : DUT_HVDC_ISOLATE_Pin DUT_VGS_IDLE_SEL_Pin DUT_VICTRL_SEL_Pin DUT_GATE_SEL_Pin */
-  GPIO_InitStruct.Pin = DUT_HVDC_ISOLATE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin;
+  GPIO_InitStruct.Pin = DUT_HVDC_ENABLE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -2052,8 +2055,33 @@ static void prvCommandHandlerTask( void *pvParameters )
 	      /* Data was received, process it here. */
 	      //prvProcessData( cRxedData, lBytesReceived );
 	      cRxedData[lBytesReceived] = 0; //ensure null terminated string
-	      if (strncmp(cRxedData, "test", 4) == 0){
-		  ulSevenSegD1 = 0xFF00FF;
+	      if (strncmp(cRxedData, "INIT", 4) == 0){
+		  FreeRTOS_printf(("Received Init Command\n"));
+		  HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(DUT_VGS_IDLE_SEL_GPIO_Port, DUT_VGS_IDLE_SEL_Pin, GPIO_PIN_RESET);
+
+	      }
+	      if (strncmp(cRxedData, "STOP", 4) == 0){
+		  FreeRTOS_printf(("Received Stop Command\n"));
+		  HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(DUT_VGS_IDLE_SEL_GPIO_Port, DUT_VGS_IDLE_SEL_Pin, GPIO_PIN_RESET);
+
+	      }
+	      if (strncmp(cRxedData, "HEAT", 4) == 0){
+		  FreeRTOS_printf(("Received Heat Command\n"));
+		  HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
+		  HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_SET);
+		  ulSevenSegD1 |= 1<<8; //turn first digit DP on
+	      }
+	      if (strncmp(cRxedData, "COOL", 4) == 0){
+		  FreeRTOS_printf(("Received Cool Command\n"));
+		  HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
+		  HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
+		  ulSevenSegD1 &= ~(1<<8); //turn first digit DP off
 	      }
 	  }
 	  else if( lBytesReceived == 0 )

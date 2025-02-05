@@ -59,8 +59,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define DUT_HVDC_ISOLATE_Pin GPIO_PIN_2
-#define DUT_HVDC_ISOLATE_GPIO_Port GPIOE
+#define DUT_HVDC_ENABLE_Pin GPIO_PIN_2
+#define DUT_HVDC_ENABLE_GPIO_Port GPIOE
 #define DUT_VGS_IDLE_SEL_Pin GPIO_PIN_3
 #define DUT_VGS_IDLE_SEL_GPIO_Port GPIOE
 #define DUT_VICTRL_SEL_Pin GPIO_PIN_4
