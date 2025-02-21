@@ -133,11 +133,11 @@ const UBaseType_t xADCNotifyIndex = 0; // needs configuring
 
 // HS ADC
 uint16_t usZero __attribute__((section(".ram2_data"))) = 0; // DMA cannot access DTCM, so declare here
-uint16_t usADCDataMock0[ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
-uint16_t usADCDataMock1[ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
+uint16_t usHSADCData0[ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
+uint16_t usHSADCData1[ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 // GADC
-uint16_t usAuxADCDataMock0[AUX_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
-uint16_t usAuxADCDataMock1[AUX_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
+uint16_t usGADCData0[AUX_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
+uint16_t usGADCData1[AUX_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
 // TC ADC
 uint16_t usTCADCConfig[2] __attribute__((section(".ram2_data")));
 uint16_t usTCADCData0[TC_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_data")));
@@ -216,10 +216,10 @@ int main(void)
   /* USER CODE BEGIN Init */
   usZero = 0;
 
-  memset(usADCDataMock0, 0x41, sizeof(usADCDataMock0));
-  memset(usADCDataMock1, 0x42, sizeof(usADCDataMock1));
-  memset(usAuxADCDataMock0, 0x43, sizeof(usAuxADCDataMock0));
-  memset(usAuxADCDataMock1, 0x44, sizeof(usAuxADCDataMock1));
+  memset(usHSADCData0, 0x41, sizeof(usHSADCData0));
+  memset(usHSADCData1, 0x42, sizeof(usHSADCData1));
+  memset(usGADCData0, 0x43, sizeof(usGADCData0));
+  memset(usGADCData1, 0x44, sizeof(usGADCData1));
   __DSB();
   /* USER CODE END Init */
 
@@ -296,10 +296,10 @@ int main(void)
   I2C4->TXDR = 0b00110001; // write 2V = 3276 to DAC A, left justified 12 bit to 16 bit
   while ((I2C4->ISR & (I2C_ISR_TXIS)) == 0)
     ;
-  I2C4->TXDR = 0xCC; // MSB
+  I2C4->TXDR = 0x66; // MSB
   while ((I2C4->ISR & (I2C_ISR_TXIS)) == 0)
     ;
-  I2C4->TXDR = 0xC0; // LSB
+  I2C4->TXDR = 0x60; // LSB
   while ((I2C4->ISR & (I2C_ISR_TXE)) == 0)
     ;
   // Check if NACK occurred
@@ -337,8 +337,8 @@ int main(void)
   }
 
   // SPI1 RX Stream
-  DMA1_Stream0->M0AR = usADCDataMock0;
-  DMA1_Stream0->M1AR = usADCDataMock1;
+  DMA1_Stream0->M0AR = usHSADCData0;
+  DMA1_Stream0->M1AR = usHSADCData1;
   DMA1_Stream0->PAR = &(SPI1->RXDR);
   DMA1_Stream0->CR |= DMA_DOUBLE_BUFFER_M0;
   DMA1_Stream0->NDTR = ADC_BUFFER_HALF_SIZE;
@@ -348,8 +348,8 @@ int main(void)
   DMA1_Stream0->CR |= DMA_SxCR_EN;
 
   // SPI2 RX Stream
-  DMA1_Stream1->M0AR = usAuxADCDataMock0;
-  DMA1_Stream1->M1AR = usAuxADCDataMock1;
+  DMA1_Stream1->M0AR = usGADCData0;
+  DMA1_Stream1->M1AR = usGADCData1;
   DMA1_Stream1->PAR = &(SPI2->RXDR);
   DMA1_Stream1->CR |= DMA_DOUBLE_BUFFER_M0;
   DMA1_Stream1->NDTR = AUX_ADC_BUFFER_HALF_SIZE;
@@ -402,7 +402,7 @@ int main(void)
   SPI1->TXDR = ((spi_data[1] << 8) | spi_data[0]);
   while ((SPI1->SR & SPI_SR_TXC) == 0)
   {
-  };                         // wait for enough space to become available
+  }; // wait for enough space to become available
   spi_data[1] = 0x80 + 0x03; // start conversion
   spi_data[0] = 0b00000010;
   SPI1->TXDR = ((spi_data[1] << 8) | spi_data[0]);
@@ -424,7 +424,7 @@ int main(void)
   SPI2->TXDR = ((ucGADCSPIData[0] << 16) | ucGADCSPIData[1]);
   while ((SPI2->SR & SPI_SR_TXC) == 0)
   {
-  };                                     // wait for enough space to become available
+  }; // wait for enough space to become available
   ucGADCSPIData[0] = 0b1101000000010100; // 14h
   ucGADCSPIData[1] = 0b10;               // range select +-1.5x VREF
   SPI2->TXDR = ((ucGADCSPIData[0] << 16) | ucGADCSPIData[1]);
@@ -1580,14 +1580,15 @@ static void vNotifierTask(void *pvParameters)
   }
 }
 
+//thanks Deepseek R1
 static void vADCTCPTask(void *pvParameters)
 {
-  Socket_t xSocket;
+  Socket_t xSocket = FREERTOS_INVALID_SOCKET;
   static const TickType_t xTimeOut = pdMS_TO_TICKS(500);
   struct freertos_sockaddr xRemoteAddress;
   BaseType_t xAlreadyTransmitted, xBytesSent;
   char *pcBufferToTransmit;
-  const size_t xTotalLengthToSend = sizeof(usADCDataMock0);
+  const size_t xTotalLengthToSend = sizeof(usHSADCData0);
   uint32_t ulCurrBuf;
 
   /* Remote address setup */
@@ -1598,139 +1599,91 @@ static void vADCTCPTask(void *pvParameters)
 
   for (;;)
   {
-    /* Create new socket for each transmission */
-    xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
-    WinProperties_t xWinProperties;
-
-    memset(&xWinProperties, '\0', sizeof xWinProperties);
-
-    xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE; /* Units of bytes. */
-    xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE; /* Size in units of MSS */
-    xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE; /* Units of bytes. */
-    xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE; /* Size in units of MSS */
-
-    /* Set send and receive time outs. */
-    FreeRTOS_setsockopt(xSocket,
-                        0,
-                        FREERTOS_SO_RCVTIMEO,
-                        &xTimeOut,
-                        sizeof(xTimeOut));
-
-    FreeRTOS_setsockopt(xSocket,
-                        0,
-                        FREERTOS_SO_SNDTIMEO,
-                        &xTimeOut,
-                        sizeof(xTimeOut));
-
-    FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, (void *)&xWinProperties, sizeof(xWinProperties));
-
-    configASSERT(xSocket != FREERTOS_INVALID_SOCKET);
-
-    /* Block indefinitely (without a timeout, so no need to check the function's
- return value) to wait for a notification. NOTE! Real applications
- should not block indefinitely, but instead time out occasionally in order
- to handle error conditions that may prevent the interrupt from sending
- any more notifications. */
-    xTaskNotifyWait(0x00,           /* Don't clear any bits on entry. */
-                    0xffffffff,     /* Clear all bits on exit. */
-                    &ulCurrBuf,     /* Receives the notification value. */
-                    portMAX_DELAY); /* Block indefinitely. */
-    if ((ulCurrBuf & 1) != 0)
+    /* Create socket and connect if not already connected */
+    if (xSocket == FREERTOS_INVALID_SOCKET)
     {
-      pcBufferToTransmit = usADCDataMock1;
-    }
-    else
-    {
-      pcBufferToTransmit = usADCDataMock0;
-    }
-    //        HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
-    xAlreadyTransmitted = 0;
-    xBytesSent = 0;
-    //        FreeRTOS_printf(("Start Mock Transmission \n"));
-
-    if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) == 0)
-    {
-      while (xAlreadyTransmitted < xTotalLengthToSend)
+      /* Create new socket */
+      xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
+      if (xSocket == FREERTOS_INVALID_SOCKET)
       {
-        BaseType_t xAvlSpace = 0;
-        BaseType_t xBytesToSend = 0;
-        uint8_t *pucTCPZeroCopyStrmBuffer;
+        vTaskDelay(pdMS_TO_TICKS(100)); // Wait before retry
+        continue;
+      }
 
-        /* This RTOS task is going to send using the zero copy interface.  The
-           data being sent is therefore written directly into the TCP TX stream
-           buffer that is passed into, rather than copied into, the FreeRTOS_send()
-           function. */
+      /* Configure socket options */
+      WinProperties_t xWinProperties;
+      memset(&xWinProperties, '\0', sizeof xWinProperties);
+      xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE;
+      xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE;
+      xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE;
+      xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE;
 
-        /* Obtain the pointer to the current head of sockets TX stream buffer
-           using FreeRTOS_get_tx_head */
-        pucTCPZeroCopyStrmBuffer = FreeRTOS_get_tx_head(xSocket, &xAvlSpace);
-        //                    FreeRTOS_printf(("xSocket Available Space: %d \n", xAvlSpace));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_RCVTIMEO, &xTimeOut, sizeof(xTimeOut));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_SNDTIMEO, &xTimeOut, sizeof(xTimeOut));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, &xWinProperties, sizeof(xWinProperties));
 
-        if (pucTCPZeroCopyStrmBuffer)
-        {
-          /* Check if there is enough space in the stream buffer to place
-             the entire data. */
-          if ((xTotalLengthToSend - xAlreadyTransmitted) > xAvlSpace)
-          {
-            xBytesToSend = xAvlSpace;
-          }
-          else
-          {
-            xBytesToSend = (xTotalLengthToSend - xAlreadyTransmitted);
-          }
-          memcpy(pucTCPZeroCopyStrmBuffer,
-                 (void *)(((uint8_t *)pcBufferToTransmit) + xAlreadyTransmitted),
-                 xBytesToSend);
-        }
-        else
-        {
-          /* Error - break out of the loop for graceful socket close. */
-          break;
-        }
-
-        /* Call the FreeRTOS_send with buffer as NULL indicating to the stack
-           that its a zero copy */
-        xBytesSent = FreeRTOS_send(/* The socket being sent to. */
-                                   xSocket,
-                                   /* The data being sent. */
-                                   NULL,
-                                   /* The remaining length of data to send. */
-                                   xBytesToSend,
-                                   /* ulFlags. */
-                                   0);
-
-        if (xBytesSent >= 0)
-        {
-          /* Data was sent successfully. */
-          xAlreadyTransmitted += xBytesSent;
-        }
-        else
-        {
-          /* Error - break out of the loop for graceful socket close. */
-          break;
-        }
+      /* Attempt connection */
+      if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) != 0)
+      {
+        FreeRTOS_closesocket(xSocket);
+        xSocket = FREERTOS_INVALID_SOCKET;
+        vTaskDelay(pdMS_TO_TICKS(100)); // Wait before retry
+        continue;
       }
     }
 
-    /* Cleanup after each transmission */
-    FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
-    while (FreeRTOS_recv(xSocket, pcBufferToTransmit, xTotalLengthToSend, 0) >= 0)
+    /* Wait for data notification */
+    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
+
+    /* Select buffer based on notification */
+    pcBufferToTransmit = (ulCurrBuf & 1) ? usHSADCData1 : usHSADCData0;
+
+    /* Send data through persistent connection */
+    xAlreadyTransmitted = 0;
+    while (xAlreadyTransmitted < xTotalLengthToSend)
     {
-      vTaskDelay(pdMS_TO_TICKS(1));
+      BaseType_t xAvlSpace = 0;
+      BaseType_t xBytesToSend = 0;
+      uint8_t *pucTCPZeroCopyStrmBuffer = FreeRTOS_get_tx_head(xSocket, &xAvlSpace);
+
+      if (!pucTCPZeroCopyStrmBuffer)
+        break;
+
+      xBytesToSend = (xTotalLengthToSend - xAlreadyTransmitted) > xAvlSpace ? xAvlSpace : (xTotalLengthToSend - xAlreadyTransmitted);
+
+      memcpy(pucTCPZeroCopyStrmBuffer,
+             (uint8_t *)pcBufferToTransmit + xAlreadyTransmitted,
+             xBytesToSend);
+
+      xBytesSent = FreeRTOS_send(xSocket, NULL, xBytesToSend, 0);
+
+      if (xBytesSent >= 0)
+      {
+        xAlreadyTransmitted += xBytesSent;
+      }
+      else
+      {
+        break; // Send error occurred
+      }
     }
-    FreeRTOS_closesocket(xSocket);
-    //        FreeRTOS_printf(("End Mock Transmission \n"));
+
+    /* Handle partial/failed transmission */
+    if (xAlreadyTransmitted < xTotalLengthToSend)
+    {
+      FreeRTOS_closesocket(xSocket);
+      xSocket = FREERTOS_INVALID_SOCKET;
+    }
   }
 }
 
 static void vAuxADCTCPTask(void *pvParameters)
 {
-  Socket_t xSocket;
+  Socket_t xSocket = FREERTOS_INVALID_SOCKET;
   static const TickType_t xTimeOut = pdMS_TO_TICKS(500);
   struct freertos_sockaddr xRemoteAddress;
   BaseType_t xAlreadyTransmitted, xBytesSent;
   char *pcBufferToTransmit;
-  const size_t xTotalLengthToSend = sizeof(usAuxADCDataMock0);
+  const size_t xTotalLengthToSend = sizeof(usGADCData0);
   uint32_t ulCurrBuf;
 
   /* Remote address setup */
@@ -1741,134 +1694,86 @@ static void vAuxADCTCPTask(void *pvParameters)
 
   for (;;)
   {
-    /* Create new socket for each transmission */
-    xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
-    WinProperties_t xWinProperties;
-
-    memset(&xWinProperties, '\0', sizeof xWinProperties);
-
-    xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE; /* Units of bytes. */
-    xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE; /* Size in units of MSS */
-    xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE; /* Units of bytes. */
-    xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE; /* Size in units of MSS */
-
-    /* Set send and receive time outs. */
-    FreeRTOS_setsockopt(xSocket,
-                        0,
-                        FREERTOS_SO_RCVTIMEO,
-                        &xTimeOut,
-                        sizeof(xTimeOut));
-
-    FreeRTOS_setsockopt(xSocket,
-                        0,
-                        FREERTOS_SO_SNDTIMEO,
-                        &xTimeOut,
-                        sizeof(xTimeOut));
-
-    FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, (void *)&xWinProperties, sizeof(xWinProperties));
-
-    configASSERT(xSocket != FREERTOS_INVALID_SOCKET);
-
-    /* Block indefinitely (without a timeout, so no need to check the function's
- return value) to wait for a notification. NOTE! Real applications
- should not block indefinitely, but instead time out occasionally in order
- to handle error conditions that may prevent the interrupt from sending
- any more notifications. */
-    xTaskNotifyWait(0x00,           /* Don't clear any bits on entry. */
-                    0xffffffff,     /* Clear all bits on exit. */
-                    &ulCurrBuf,     /* Receives the notification value. */
-                    portMAX_DELAY); /* Block indefinitely. */
-    if ((ulCurrBuf & 1) != 0)
+    /* Create socket and connect if not already connected */
+    if (xSocket == FREERTOS_INVALID_SOCKET)
     {
-      pcBufferToTransmit = usAuxADCDataMock1;
-    }
-    else
-    {
-      pcBufferToTransmit = usAuxADCDataMock0;
-    }
-    //        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-    xAlreadyTransmitted = 0;
-    xBytesSent = 0;
-    //        FreeRTOS_printf(("Start Mock Transmission \n"));
-
-    if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) == 0)
-    {
-      while (xAlreadyTransmitted < xTotalLengthToSend)
+      /* Create new socket */
+      xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
+      if (xSocket == FREERTOS_INVALID_SOCKET)
       {
-        BaseType_t xAvlSpace = 0;
-        BaseType_t xBytesToSend = 0;
-        uint8_t *pucTCPZeroCopyStrmBuffer;
+        vTaskDelay(pdMS_TO_TICKS(100)); // Wait before retry
+        continue;
+      }
 
-        /* This RTOS task is going to send using the zero copy interface.  The
-           data being sent is therefore written directly into the TCP TX stream
-           buffer that is passed into, rather than copied into, the FreeRTOS_send()
-           function. */
+      /* Configure socket options */
+      WinProperties_t xWinProperties;
+      memset(&xWinProperties, '\0', sizeof xWinProperties);
+      xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE;
+      xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE;
+      xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE;
+      xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE;
 
-        /* Obtain the pointer to the current head of sockets TX stream buffer
-           using FreeRTOS_get_tx_head */
-        pucTCPZeroCopyStrmBuffer = FreeRTOS_get_tx_head(xSocket, &xAvlSpace);
-        //                    FreeRTOS_printf(("xSocket Available Space: %d \n", xAvlSpace));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_RCVTIMEO, &xTimeOut, sizeof(xTimeOut));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_SNDTIMEO, &xTimeOut, sizeof(xTimeOut));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, &xWinProperties, sizeof(xWinProperties));
 
-        if (pucTCPZeroCopyStrmBuffer)
-        {
-          /* Check if there is enough space in the stream buffer to place
-             the entire data. */
-          if ((xTotalLengthToSend - xAlreadyTransmitted) > xAvlSpace)
-          {
-            xBytesToSend = xAvlSpace;
-          }
-          else
-          {
-            xBytesToSend = (xTotalLengthToSend - xAlreadyTransmitted);
-          }
-          memcpy(pucTCPZeroCopyStrmBuffer,
-                 (void *)(((uint8_t *)pcBufferToTransmit) + xAlreadyTransmitted),
-                 xBytesToSend);
-        }
-        else
-        {
-          /* Error - break out of the loop for graceful socket close. */
-          break;
-        }
-
-        /* Call the FreeRTOS_send with buffer as NULL indicating to the stack
-           that its a zero copy */
-        xBytesSent = FreeRTOS_send(/* The socket being sent to. */
-                                   xSocket,
-                                   /* The data being sent. */
-                                   NULL,
-                                   /* The remaining length of data to send. */
-                                   xBytesToSend,
-                                   /* ulFlags. */
-                                   0);
-
-        if (xBytesSent >= 0)
-        {
-          /* Data was sent successfully. */
-          xAlreadyTransmitted += xBytesSent;
-        }
-        else
-        {
-          /* Error - break out of the loop for graceful socket close. */
-          break;
-        }
+      /* Attempt connection */
+      if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) != 0)
+      {
+        FreeRTOS_closesocket(xSocket);
+        xSocket = FREERTOS_INVALID_SOCKET;
+        vTaskDelay(pdMS_TO_TICKS(100)); // Wait before retry
+        continue;
       }
     }
 
-    /* Cleanup after each transmission */
-    FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
-    while (FreeRTOS_recv(xSocket, pcBufferToTransmit, xTotalLengthToSend, 0) >= 0)
+    /* Wait for data notification */
+    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
+
+    /* Select buffer based on notification */
+    pcBufferToTransmit = (ulCurrBuf & 1) ? usGADCData1 : usGADCData0;
+
+    /* Send data through persistent connection */
+    xAlreadyTransmitted = 0;
+    while (xAlreadyTransmitted < xTotalLengthToSend)
     {
-      vTaskDelay(pdMS_TO_TICKS(1));
+      BaseType_t xAvlSpace = 0;
+      BaseType_t xBytesToSend = 0;
+      uint8_t *pucTCPZeroCopyStrmBuffer = FreeRTOS_get_tx_head(xSocket, &xAvlSpace);
+
+      if (!pucTCPZeroCopyStrmBuffer)
+        break;
+
+      xBytesToSend = (xTotalLengthToSend - xAlreadyTransmitted) > xAvlSpace ? xAvlSpace : (xTotalLengthToSend - xAlreadyTransmitted);
+
+      memcpy(pucTCPZeroCopyStrmBuffer,
+             (uint8_t *)pcBufferToTransmit + xAlreadyTransmitted,
+             xBytesToSend);
+
+      xBytesSent = FreeRTOS_send(xSocket, NULL, xBytesToSend, 0);
+
+      if (xBytesSent >= 0)
+      {
+        xAlreadyTransmitted += xBytesSent;
+      }
+      else
+      {
+        break; // Send error occurred
+      }
     }
-    FreeRTOS_closesocket(xSocket);
-    //        FreeRTOS_printf(("End Mock Transmission \n"));
+
+    /* Handle partial/failed transmission */
+    if (xAlreadyTransmitted < xTotalLengthToSend)
+    {
+      FreeRTOS_closesocket(xSocket);
+      xSocket = FREERTOS_INVALID_SOCKET;
+    }
   }
 }
 
 static void vTCADCTCPTask(void *pvParameters)
 {
-  Socket_t xSocket;
+  Socket_t xSocket = FREERTOS_INVALID_SOCKET;
   static const TickType_t xTimeOut = pdMS_TO_TICKS(500);
   struct freertos_sockaddr xRemoteAddress;
   BaseType_t xAlreadyTransmitted, xBytesSent;
@@ -1884,128 +1789,80 @@ static void vTCADCTCPTask(void *pvParameters)
 
   for (;;)
   {
-    /* Create new socket for each transmission */
-    xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
-    WinProperties_t xWinProperties;
-
-    memset(&xWinProperties, '\0', sizeof xWinProperties);
-
-    xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE; /* Units of bytes. */
-    xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE; /* Size in units of MSS */
-    xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE; /* Units of bytes. */
-    xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE; /* Size in units of MSS */
-
-    /* Set send and receive time outs. */
-    FreeRTOS_setsockopt(xSocket,
-                        0,
-                        FREERTOS_SO_RCVTIMEO,
-                        &xTimeOut,
-                        sizeof(xTimeOut));
-
-    FreeRTOS_setsockopt(xSocket,
-                        0,
-                        FREERTOS_SO_SNDTIMEO,
-                        &xTimeOut,
-                        sizeof(xTimeOut));
-
-    FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, (void *)&xWinProperties, sizeof(xWinProperties));
-
-    configASSERT(xSocket != FREERTOS_INVALID_SOCKET);
-
-    /* Block indefinitely (without a timeout, so no need to check the function's
- return value) to wait for a notification. NOTE! Real applications
- should not block indefinitely, but instead time out occasionally in order
- to handle error conditions that may prevent the interrupt from sending
- any more notifications. */
-    xTaskNotifyWait(0x00,           /* Don't clear any bits on entry. */
-                    0xffffffff,     /* Clear all bits on exit. */
-                    &ulCurrBuf,     /* Receives the notification value. */
-                    portMAX_DELAY); /* Block indefinitely. */
-    if ((ulCurrBuf & 1) != 0)
+    /* Create socket and connect if not already connected */
+    if (xSocket == FREERTOS_INVALID_SOCKET)
     {
-      pcBufferToTransmit = usTCADCData1;
-    }
-    else
-    {
-      pcBufferToTransmit = usTCADCData0;
-    }
-    //        HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
-    xAlreadyTransmitted = 0;
-    xBytesSent = 0;
-    //        FreeRTOS_printf(("Start Mock Transmission \n"));
-
-    if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) == 0)
-    {
-      while (xAlreadyTransmitted < xTotalLengthToSend)
+      /* Create new socket */
+      xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
+      if (xSocket == FREERTOS_INVALID_SOCKET)
       {
-        BaseType_t xAvlSpace = 0;
-        BaseType_t xBytesToSend = 0;
-        uint8_t *pucTCPZeroCopyStrmBuffer;
+        vTaskDelay(pdMS_TO_TICKS(100)); // Wait before retry
+        continue;
+      }
 
-        /* This RTOS task is going to send using the zero copy interface.  The
-           data being sent is therefore written directly into the TCP TX stream
-           buffer that is passed into, rather than copied into, the FreeRTOS_send()
-           function. */
+      /* Configure socket options */
+      WinProperties_t xWinProperties;
+      memset(&xWinProperties, '\0', sizeof xWinProperties);
+      xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE;
+      xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE;
+      xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE;
+      xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE;
 
-        /* Obtain the pointer to the current head of sockets TX stream buffer
-           using FreeRTOS_get_tx_head */
-        pucTCPZeroCopyStrmBuffer = FreeRTOS_get_tx_head(xSocket, &xAvlSpace);
-        //                    FreeRTOS_printf(("xSocket Available Space: %d \n", xAvlSpace));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_RCVTIMEO, &xTimeOut, sizeof(xTimeOut));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_SNDTIMEO, &xTimeOut, sizeof(xTimeOut));
+      FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, &xWinProperties, sizeof(xWinProperties));
 
-        if (pucTCPZeroCopyStrmBuffer)
-        {
-          /* Check if there is enough space in the stream buffer to place
-             the entire data. */
-          if ((xTotalLengthToSend - xAlreadyTransmitted) > xAvlSpace)
-          {
-            xBytesToSend = xAvlSpace;
-          }
-          else
-          {
-            xBytesToSend = (xTotalLengthToSend - xAlreadyTransmitted);
-          }
-          memcpy(pucTCPZeroCopyStrmBuffer,
-                 (void *)(((uint8_t *)pcBufferToTransmit) + xAlreadyTransmitted),
-                 xBytesToSend);
-        }
-        else
-        {
-          /* Error - break out of the loop for graceful socket close. */
-          break;
-        }
-
-        /* Call the FreeRTOS_send with buffer as NULL indicating to the stack
-           that its a zero copy */
-        xBytesSent = FreeRTOS_send(/* The socket being sent to. */
-                                   xSocket,
-                                   /* The data being sent. */
-                                   NULL,
-                                   /* The remaining length of data to send. */
-                                   xBytesToSend,
-                                   /* ulFlags. */
-                                   0);
-
-        if (xBytesSent >= 0)
-        {
-          /* Data was sent successfully. */
-          xAlreadyTransmitted += xBytesSent;
-        }
-        else
-        {
-          /* Error - break out of the loop for graceful socket close. */
-          break;
-        }
+      /* Attempt connection */
+      if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) != 0)
+      {
+        FreeRTOS_closesocket(xSocket);
+        xSocket = FREERTOS_INVALID_SOCKET;
+        vTaskDelay(pdMS_TO_TICKS(100)); // Wait before retry
+        continue;
       }
     }
 
-    /* Cleanup after each transmission */
-    FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
-    while (FreeRTOS_recv(xSocket, pcBufferToTransmit, xTotalLengthToSend, 0) >= 0)
+    /* Wait for data notification */
+    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
+
+    /* Select buffer based on notification */
+    pcBufferToTransmit = (ulCurrBuf & 1) ? usTCADCData1 : usTCADCData0;
+
+    /* Send data through persistent connection */
+    xAlreadyTransmitted = 0;
+    while (xAlreadyTransmitted < xTotalLengthToSend)
     {
-      vTaskDelay(pdMS_TO_TICKS(1));
+      BaseType_t xAvlSpace = 0;
+      BaseType_t xBytesToSend = 0;
+      uint8_t *pucTCPZeroCopyStrmBuffer = FreeRTOS_get_tx_head(xSocket, &xAvlSpace);
+
+      if (!pucTCPZeroCopyStrmBuffer)
+        break;
+
+      xBytesToSend = (xTotalLengthToSend - xAlreadyTransmitted) > xAvlSpace ? xAvlSpace : (xTotalLengthToSend - xAlreadyTransmitted);
+
+      memcpy(pucTCPZeroCopyStrmBuffer,
+             (uint8_t *)pcBufferToTransmit + xAlreadyTransmitted,
+             xBytesToSend);
+
+      xBytesSent = FreeRTOS_send(xSocket, NULL, xBytesToSend, 0);
+
+      if (xBytesSent >= 0)
+      {
+        xAlreadyTransmitted += xBytesSent;
+      }
+      else
+      {
+        break; // Send error occurred
+      }
     }
-    FreeRTOS_closesocket(xSocket);
-    //        FreeRTOS_printf(("End Mock Transmission \n"));
+
+    /* Handle partial/failed transmission */
+    if (xAlreadyTransmitted < xTotalLengthToSend)
+    {
+      FreeRTOS_closesocket(xSocket);
+      xSocket = FREERTOS_INVALID_SOCKET;
+    }
   }
 }
 
@@ -2109,14 +1966,37 @@ being passed into this RTOS task using the RTOS task's parameter. */
       if (strncmp(cRxedData, "HEAT", 4) == 0)
       {
         FreeRTOS_printf(("Received Heat Command\n"));
-        GPIOE->BSRR = DUT_GATE_SEL_Pin << 16 | DUT_VICTRL_SEL_Pin << 16 | DUT_HVDC_ENABLE_Pin;
-        ulSevenSegD1 |= 1 << 5; // turn first digit DP on
+//        GPIOE->BSRR = DUT_GATE_SEL_Pin << 16 | DUT_VICTRL_SEL_Pin << 16 | DUT_HVDC_ENABLE_Pin;
+        HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
+	ulSevenSegD1 |= 1 << 5; // turn first digit DP on
       }
-      if (strncmp(cRxedData, "COOL", 4) == 0)
+      if (strncmp(cRxedData, "COOLA", 5) == 0)
       {
-        FreeRTOS_printf(("Received Cool Command\n"));
-        GPIOE->BSRR = DUT_GATE_SEL_Pin | DUT_VICTRL_SEL_Pin | DUT_HVDC_ENABLE_Pin << 16;
+        FreeRTOS_printf(("Received Advanced Cool Command\n"));
+//        GPIOE->BSRR = DUT_GATE_SEL_Pin | DUT_VICTRL_SEL_Pin | DUT_HVDC_ENABLE_Pin << 16;
+        //this sequence helps to get better results in terms of charge injection
+        taskENTER_CRITICAL();
+        HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
+        HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_SET);
+        for(int i = 0; i < 5000; i++){
+	    asm("nop");
+	}
+        HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_SET);
+        for(int i = 0; i < 5000; i++){
+            asm("nop");
+        }
+        HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
+        taskEXIT_CRITICAL();
         ulSevenSegD1 &= ~(1 << 5); // turn first digit DP off
+      }
+      if (strncmp(cRxedData, "COOLB", 5) == 0)
+      {
+	FreeRTOS_printf(("Received Basic Cool Command\n"));
+        GPIOE->BSRR = DUT_GATE_SEL_Pin | DUT_VICTRL_SEL_Pin | DUT_HVDC_ENABLE_Pin << 16;
+	ulSevenSegD1 &= ~(1 << 5); // turn first digit DP off
       }
     }
     else if (lBytesReceived == 0)
