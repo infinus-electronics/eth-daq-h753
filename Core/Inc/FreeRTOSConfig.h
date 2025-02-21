@@ -280,11 +280,11 @@ end with \n. */
 /* The UDP logging facility buffers messages until the UDP logging task is able
 to transmit them.  configUDP_LOGGING_MAX_MESSAGES_IN_BUFFER sets the maximum
 number of messages that can be buffered at any one time. */
-#define	configUDP_LOGGING_MAX_MESSAGES_IN_BUFFER	( 20 )
+//#define	configUDP_LOGGING_MAX_MESSAGES_IN_BUFFER	( 20 )
 
 /* The UDP logging facility creates a task to send buffered messages to the UDP
 port.  configUDP_LOGGING_TASK_STACK_SIZE sets the task's stack size. */
-#define	configUDP_LOGGING_TASK_STACK_SIZE  	( 512 )
+//#define	configUDP_LOGGING_TASK_STACK_SIZE  	( 512 )
 
 /* The UDP logging facility creates a task to send buffered messages to the UDP
 port.  configUDP_LOGGING_TASK_PRIORITY sets the task's priority.  It is

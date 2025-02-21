@@ -108,7 +108,7 @@ const uint8_t ucIPAddress[4] = {configIP_ADDR0, configIP_ADDR1, configIP_ADDR2, 
 const uint8_t ucNetMask[4] = {configNET_MASK0, configNET_MASK1, configNET_MASK2, configNET_MASK3};
 const uint8_t ucGatewayAddress[4] = {configGATEWAY_ADDR0, configGATEWAY_ADDR1, configGATEWAY_ADDR2, configGATEWAY_ADDR3};
 const uint8_t ucDNSServerAddress[4] = {configDNS_SERVER_ADDR0, configDNS_SERVER_ADDR1, configDNS_SERVER_ADDR2, configDNS_SERVER_ADDR3};
-const uint8_t ucMACAddress[6] = {configMAC_ADDR0, configMAC_ADDR1, configMAC_ADDR2, configMAC_ADDR3, configMAC_ADDR4, configMAC_ADDR5};
+uint8_t ucMACAddress[6] = {configMAC_ADDR0, configMAC_ADDR1, configMAC_ADDR2, configMAC_ADDR3, configMAC_ADDR4, configMAC_ADDR5};
 const uint8_t ucServerIPAddress[4] = {192, 168, 1, 3};
 const uint16_t usADCPort = 5555;
 const uint16_t usAuxADCPort = 5556;
@@ -148,6 +148,8 @@ uint16_t usTCADCData1[TC_ADC_BUFFER_HALF_SIZE] __attribute__((section(".ram2_dat
 // 7 Segment Display
 uint32_t ulSevenSegD1 __attribute__((section(".ram2_data"))) = 0xFF0000;
 uint32_t ulSevenSegD2 __attribute__((section(".ram2_data"))) = 0xFF0000; // display 8.8.
+
+uint32_t ulUID[3];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -181,6 +183,7 @@ static void vAuxADCTCPTask(void *pvParameters);
 static void vTCADCTCPTask(void *pvParameters);
 static void vCommandServerTask(void *pvParameters);
 static void prvCommandHandlerTask(void *pvParameters);
+void prvGenerateMACFromUID(const uint32_t *uid_96bit, uint8_t *mac_addr);
 
 /* USER CODE END PFP */
 
@@ -253,6 +256,11 @@ int main(void)
   MX_TIM5_Init();
   MX_RNG_Init();
   /* USER CODE BEGIN 2 */
+
+  //Read UID
+  ulUID[0] = *(unsigned int*)UID_BASE;
+  ulUID[1] = *(unsigned int*)(UID_BASE+4);
+  ulUID[2] = *(unsigned int*)(UID_BASE+8);
 
   //RNG Setup and Seeding
   RNG->CR &= ~RNG_CR_IE;
@@ -512,6 +520,8 @@ int main(void)
   TIM5->EGR |= TIM_EGR_UG;
   TIM5->CR1 |= TIM_CR1_CEN;
 
+  //use UID to derive MAC address
+  prvGenerateMACFromUID(ulUID, ucMACAddress);
   /* Initialise the interface descriptor for WinPCap for example. */
   pxSTM32H_FillInterfaceDescriptor(0, &(xInterfaces[0]));
 
@@ -1499,7 +1509,11 @@ void vApplicationIPNetworkEventHook(eIPCallbackEvent_t eNetworkEvent)
     FreeRTOS_inet_ntoa(ulDNSServerAddress, cBuffer);
     FreeRTOS_printf(("DNS Server Address: %s\n", cBuffer));
 
-    FreeRTOS_printf(("RNG Seed: %lu\n", ulSeed));
+    FreeRTOS_printf(("RNG Seed: %u\n", ulSeed));
+
+    FreeRTOS_printf(("Device UID: %u-%u-%u\n", ulUID[0], ulUID[1], ulUID[2]));
+
+    FreeRTOS_printf(("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n", ucMACAddress[0],ucMACAddress[1],ucMACAddress[2],ucMACAddress[3],ucMACAddress[4],ucMACAddress[5]));
   }
 }
 /*-----------------------------------------------------------*/
@@ -2092,6 +2106,27 @@ error before closing the socket). */
   vTaskDelete(NULL);
 }
 
+//credit Claude
+void prvGenerateMACFromUID(const uint32_t *uid_96bit, uint8_t *mac_addr) {
+    // Extract and XOR corresponding bytes
+
+    // Handle first 4 bytes
+    uint32_t first_word = uid_96bit[0];
+    uint32_t third_word = uid_96bit[2];
+
+    mac_addr[0] = ((first_word >> 24) & 0xFF) ^ ((third_word >> 24) & 0xFF);
+    mac_addr[1] = ((first_word >> 16) & 0xFF) ^ ((third_word >> 16) & 0xFF);
+    mac_addr[2] = ((first_word >> 8) & 0xFF) ^ ((third_word >> 8) & 0xFF);
+    mac_addr[3] = (first_word & 0xFF) ^ (third_word & 0xFF);
+
+    // Handle remaining 2 bytes
+    uint32_t second_word = uid_96bit[1];
+    mac_addr[4] = ((second_word >> 24) & 0xFF) ^ ((third_word >> 24) & 0xFF);
+    mac_addr[5] = ((second_word >> 16) & 0xFF) ^ ((third_word >> 16) & 0xFF);
+
+    // Ensure locally administered (bit 1 = 1) and unicast (bit 0 = 0)
+    mac_addr[0] = (mac_addr[0] & 0xFC) | 0x02;
+}
 /* USER CODE END 4 */
 
  /* MPU Configuration */
