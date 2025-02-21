@@ -471,12 +471,7 @@ int main(void)
   SPI3->CFG1 |= SPI_CFG1_RXDMAEN;
   SPI3->CR1 |= SPI_CR1_SPE;
   SPI3->CR1 |= SPI_CR1_CSTART;
-  // enable TIM5 (SPI3 TX)
-  TIM5->CR1 |= TIM_CR1_URS;
-  TIM5->CR1 &= ~TIM_CR1_UDIS;
-  TIM5->DIER |= TIM_DMA_UPDATE;
-  TIM5->EGR |= TIM_EGR_UG;
-  TIM5->CR1 |= TIM_CR1_CEN;
+
 
   HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
@@ -509,6 +504,13 @@ int main(void)
   TIM3->DIER |= TIM_DMA_UPDATE;
   TIM3->EGR |= TIM_EGR_UG;
   TIM3->CR1 |= TIM_CR1_CEN;
+
+  // enable TIM5 (SPI3 TX)
+  TIM5->CR1 |= TIM_CR1_URS;
+  TIM5->CR1 &= ~TIM_CR1_UDIS;
+  TIM5->DIER |= TIM_DMA_UPDATE;
+  TIM5->EGR |= TIM_EGR_UG;
+  TIM5->CR1 |= TIM_CR1_CEN;
 
   /* Initialise the interface descriptor for WinPCap for example. */
   pxSTM32H_FillInterfaceDescriptor(0, &(xInterfaces[0]));

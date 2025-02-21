@@ -11,7 +11,7 @@
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:702:33:pxPacketBuffer_to_NetworkBuffer	1
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:717:29:pxUDPPayloadBuffer_to_NetworkBuffer	7
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:792:12:xIsCallingFromIPTask	2
-../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:819:6:prvProcessNetworkDownEvent	14
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:819:6:prvProcessNetworkDownEvent	16
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:984:6:vPreCheckConfigs	11
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:1073:10:usGenerateProtocolChecksum	14
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:1255:10:usGenerateChecksum	16
@@ -27,3 +27,4 @@
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:1725:10:FreeRTOS_round_down	3
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:1750:10:ulChar2u32	1
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:1768:10:usChar2u16	1
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP_Utils.c:1783:18:eGetDHCPState	1

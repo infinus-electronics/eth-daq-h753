@@ -2,7 +2,7 @@
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP.c:240:13:prvProcessIPEventsAndTimers	20
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP.c:477:13:prvIPTask_Initialise	2
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP.c:531:13:prvIPTask_CheckPendingEvents	4
-../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP.c:563:13:prvCallDHCP_RA_Handler	4
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP.c:563:13:prvCallDHCP_RA_Handler	6
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP.c:614:14:FreeRTOS_GetIPTaskHandle	1
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP.c:625:6:vIPNetworkUpCalls	2
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_IP.c:669:13:prvHandleEthernetPacket	2

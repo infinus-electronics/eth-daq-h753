@@ -1,5 +1,5 @@
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Parser.c:59:12:DNS_ReadNameField	40	static
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Parser.c:172:12:DNS_SkipNameField	32	static
-../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Parser.c:253:14:DNS_ParseDNSReply	488	static
+../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Parser.c:253:14:DNS_ParseDNSReply	544	static
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Parser.c:626:14:parseDNSAnswer	168	static
 ../Drivers/FreeRTOS-Plus-TCP/FreeRTOS_DNS_Parser.c:917:14:prepareReplyDNSMessage	56	static
