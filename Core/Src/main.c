@@ -1510,7 +1510,7 @@ void vApplicationIPNetworkEventHook(eIPCallbackEvent_t eNetworkEvent)
 
     FreeRTOS_printf(("RNG Seed: %u\n", ulSeed));
 
-    FreeRTOS_printf(("Device UID: %u-%u-%u\n", ulUID[0], ulUID[1], ulUID[2]));
+    FreeRTOS_printf(("Device UID: %lu-%lu-%lu\n", ulUID[0], ulUID[1], ulUID[2]));
 
     FreeRTOS_printf(("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n", ucMACAddress[0], ucMACAddress[1], ucMACAddress[2], ucMACAddress[3], ucMACAddress[4], ucMACAddress[5]));
   }
@@ -2191,8 +2191,8 @@ void vHandshakeTask(void *pvParameters)
                              ucMACAddress[3], ucMACAddress[4], ucMACAddress[5],
                              ucFirmwareVersion,
                              ucHardwareVersion,
-                             ulADCSR,
                              ulAuxADCSR,
+                             ulADCSR,
                              ulTCADCSR);
 
       if (xJsonLength < 0 || xJsonLength >= sizeof(cJsonBuffer))
@@ -2248,6 +2248,10 @@ void vHandshakeTask(void *pvParameters)
         vTaskDelay(pdMS_TO_TICKS(50));
         FreeRTOS_closesocket(xSocket);
         xSocket = FREERTOS_INVALID_SOCKET;
+        // Start DMA-ing
+        TIM1->CR1 |= TIM_CR1_CEN;
+        TIM3->CR1 |= TIM_CR1_CEN;
+        TIM5->CR1 |= TIM_CR1_CEN;
       }
     }
 
