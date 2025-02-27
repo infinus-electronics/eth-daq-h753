@@ -103,14 +103,13 @@ DMA_HandleTypeDef hdma_tim5_up;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-//identifier constants
+// identifier constants
 const char ucFirmwareVersion[] = "v0.3.5";
 const char ucHardwareVersion[] = "v2";
 const uint32_t ulSysTimClock = 200000000UL;
 uint32_t ulADCSR = 0;
 uint32_t ulAuxADCSR = 0;
 uint32_t ulTCADCSR = 0;
-
 
 // FreeRTOS and Networking
 const uint8_t ucIPAddress[4] = {configIP_ADDR0, configIP_ADDR1, configIP_ADDR2, configIP_ADDR3};
@@ -2109,150 +2108,151 @@ error before closing the socket). */
   vTaskDelete(NULL);
 }
 
-//credit Claude
-void vHandshakeTask(void* pvParameters) {
-    Socket_t xSocket = FREERTOS_INVALID_SOCKET;
-    static const TickType_t xTimeOut = pdMS_TO_TICKS(500);
-    struct freertos_sockaddr xRemoteAddress;
-    BaseType_t xBytesSent;
-    BaseType_t xTotalBytesSent;
-    char cJsonBuffer[512]; // Buffer size for JSON data
-    int xJsonLength;
-    BaseType_t xSendSuccess;
-    const TickType_t xRetryDelay = pdMS_TO_TICKS(1000); // 1 second retry delay
+// credit Claude
+void vHandshakeTask(void *pvParameters)
+{
+  Socket_t xSocket = FREERTOS_INVALID_SOCKET;
+  static const TickType_t xTimeOut = pdMS_TO_TICKS(500);
+  struct freertos_sockaddr xRemoteAddress;
+  BaseType_t xBytesSent;
+  BaseType_t xTotalBytesSent;
+  char cJsonBuffer[512]; // Buffer size for JSON data
+  int xJsonLength;
+  BaseType_t xSendSuccess;
+  const TickType_t xRetryDelay = pdMS_TO_TICKS(1000); // 1 second retry delay
 
-    /* Remote address setup */
-    memset(&xRemoteAddress, 0, sizeof(xRemoteAddress));
-    xRemoteAddress.sin_port = FreeRTOS_htons(usHandshakePort);
-    xRemoteAddress.sin_address.ulIP_IPv4 = FreeRTOS_inet_addr_quick(ucServerIPAddress[0], ucServerIPAddress[1], ucServerIPAddress[2], ucServerIPAddress[3]);
-    xRemoteAddress.sin_family = FREERTOS_AF_INET4;
+  /* Remote address setup */
+  memset(&xRemoteAddress, 0, sizeof(xRemoteAddress));
+  xRemoteAddress.sin_port = FreeRTOS_htons(usHandshakePort);
+  xRemoteAddress.sin_address.ulIP_IPv4 = FreeRTOS_inet_addr_quick(ucServerIPAddress[0], ucServerIPAddress[1], ucServerIPAddress[2], ucServerIPAddress[3]);
+  xRemoteAddress.sin_family = FREERTOS_AF_INET4;
 
-    for (;;)
+  for (;;)
+  {
+    /* Wait for data notification */
+    xTaskNotifyWait(0x00, 0xffffffff, NULL, portMAX_DELAY);
+    FreeRTOS_printf(("Attempting Handshake...\n"));
+
+    /* Keep trying until we succeed */
+    xSendSuccess = pdFALSE;
+
+    while (xSendSuccess == pdFALSE)
     {
-        /* Wait for data notification */
-        xTaskNotifyWait(0x00, 0xffffffff, NULL, portMAX_DELAY);
-        FreeRTOS_printf(("Attempting Handshake...\n"));
-
-        /* Keep trying until we succeed */
-        xSendSuccess = pdFALSE;
-
-        while (xSendSuccess == pdFALSE)
+      /* Create socket if not already connected */
+      if (xSocket == FREERTOS_INVALID_SOCKET)
+      {
+        /* Create new socket */
+        xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
+        if (xSocket == FREERTOS_INVALID_SOCKET)
         {
-            /* Create socket if not already connected */
-            if (xSocket == FREERTOS_INVALID_SOCKET)
-            {
-                /* Create new socket */
-                xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
-                if (xSocket == FREERTOS_INVALID_SOCKET)
-                {
-                    FreeRTOS_printf(("Socket creation failed, retrying...\n"));
-                    vTaskDelay(xRetryDelay);
-                    continue;
-                }
-
-                /* Configure socket options */
-                WinProperties_t xWinProperties;
-                memset(&xWinProperties, '\0', sizeof xWinProperties);
-                xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE;
-                xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE;
-                xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE;
-                xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE;
-
-                FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_RCVTIMEO, &xTimeOut, sizeof(xTimeOut));
-                FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_SNDTIMEO, &xTimeOut, sizeof(xTimeOut));
-                FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, &xWinProperties, sizeof(xWinProperties));
-
-                /* Attempt connection */
-                if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) != 0)
-                {
-                    FreeRTOS_printf(("Connection failed, retrying...\n"));
-                    FreeRTOS_closesocket(xSocket);
-                    xSocket = FREERTOS_INVALID_SOCKET;
-                    vTaskDelay(xRetryDelay);
-                    continue;
-                }
-
-                FreeRTOS_printf(("Socket connected successfully.\n"));
-            }
-
-            /* Construct JSON data including device UUID and other parameters */
-            xJsonLength = snprintf(cJsonBuffer, sizeof(cJsonBuffer),
-                                 "{"
-                                 "\"uuid\":\"%lu-%lu-%lu\","
-                                 "\"mac\":\"%02X:%02X:%02X:%02X:%02X:%02X\","
-                                 "\"firmware\":\"%s\","
-                                 "\"hardware\":\"%s\","
-                                 "\"vgsSampleRate\":\"%lu\","
-                                 "\"vdsSampleRate\":\"%lu\","
-                                 "\"tcSampleRate\":\"%lu\""
-                                 "}\r\n",
-                                 ulUID[0], ulUID[1], ulUID[2],
-                                 ucMACAddress[0], ucMACAddress[1], ucMACAddress[2],
-                                 ucMACAddress[3], ucMACAddress[4], ucMACAddress[5],
-                                 ucFirmwareVersion,
-                                 ucHardwareVersion,
-                                 ulADCSR,
-                                 ulAuxADCSR,
-                                 ulTCADCSR);
-
-            if (xJsonLength < 0 || xJsonLength >= sizeof(cJsonBuffer)) {
-                /* JSON construction error or truncation occurred */
-                FreeRTOS_printf(("JSON construction failed, retrying...\n"));
-                FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
-                /* Wait briefly for the shutdown to complete */
-		vTaskDelay(pdMS_TO_TICKS(50));
-                FreeRTOS_closesocket(xSocket);
-                xSocket = FREERTOS_INVALID_SOCKET;
-                vTaskDelay(xRetryDelay);
-                continue;
-            }
-
-            /* Send the JSON data */
-            xTotalBytesSent = 0;
-            while (xTotalBytesSent < xJsonLength)
-            {
-                xBytesSent = FreeRTOS_send(xSocket,
-                                          &cJsonBuffer[xTotalBytesSent],
-                                          xJsonLength - xTotalBytesSent,
-                                          0);
-
-                if (xBytesSent > 0)
-                {
-                    xTotalBytesSent += xBytesSent;
-                }
-                else
-                {
-                    /* Send error occurred */
-                    FreeRTOS_printf(("Send error occurred, retrying...\n"));
-                    FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
-                    /* Wait briefly for the shutdown to complete */
-		    vTaskDelay(pdMS_TO_TICKS(50));
-		    FreeRTOS_closesocket(xSocket);
-                    xSocket = FREERTOS_INVALID_SOCKET;
-                    vTaskDelay(xRetryDelay);
-                    break;
-                }
-            }
-
-            /* Check if all data was sent successfully */
-            if (xTotalBytesSent == xJsonLength)
-            {
-                FreeRTOS_printf(("Handshake successful! Device registered.\n"));
-                xSendSuccess = pdTRUE;
-
-                /* Keep the socket open for future communications */
-                /* If you want to close it after successful send, uncomment below */
-                FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
-                /* Wait briefly for the shutdown to complete */
-		vTaskDelay(pdMS_TO_TICKS(50));
-                FreeRTOS_closesocket(xSocket);
-                xSocket = FREERTOS_INVALID_SOCKET;
-
-            }
+          FreeRTOS_printf(("Socket creation failed, retrying...\n"));
+          vTaskDelay(xRetryDelay);
+          continue;
         }
 
-        /* After successful sending, go back to waiting for the next notification */
+        /* Configure socket options */
+        WinProperties_t xWinProperties;
+        memset(&xWinProperties, '\0', sizeof xWinProperties);
+        xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE;
+        xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE;
+        xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE;
+        xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE;
+
+        FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_RCVTIMEO, &xTimeOut, sizeof(xTimeOut));
+        FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_SNDTIMEO, &xTimeOut, sizeof(xTimeOut));
+        FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, &xWinProperties, sizeof(xWinProperties));
+
+        /* Attempt connection */
+        if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) != 0)
+        {
+          FreeRTOS_printf(("Connection failed, retrying...\n"));
+          FreeRTOS_closesocket(xSocket);
+          xSocket = FREERTOS_INVALID_SOCKET;
+          vTaskDelay(xRetryDelay);
+          continue;
+        }
+
+        FreeRTOS_printf(("Socket connected successfully.\n"));
+      }
+
+      /* Construct JSON data including device UUID and other parameters */
+      xJsonLength = snprintf(cJsonBuffer, sizeof(cJsonBuffer),
+                             "{"
+                             "\"uuid\":\"%lu-%lu-%lu\","
+                             "\"mac\":\"%02X:%02X:%02X:%02X:%02X:%02X\","
+                             "\"firmware\":\"%s\","
+                             "\"hardware\":\"%s\","
+                             "\"vgsSampleRate\":\"%lu\","
+                             "\"vdsSampleRate\":\"%lu\","
+                             "\"tcSampleRate\":\"%lu\""
+                             "}\r\n",
+                             ulUID[0], ulUID[1], ulUID[2],
+                             ucMACAddress[0], ucMACAddress[1], ucMACAddress[2],
+                             ucMACAddress[3], ucMACAddress[4], ucMACAddress[5],
+                             ucFirmwareVersion,
+                             ucHardwareVersion,
+                             ulADCSR,
+                             ulAuxADCSR,
+                             ulTCADCSR);
+
+      if (xJsonLength < 0 || xJsonLength >= sizeof(cJsonBuffer))
+      {
+        /* JSON construction error or truncation occurred */
+        FreeRTOS_printf(("JSON construction failed, retrying...\n"));
+        FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
+        /* Wait briefly for the shutdown to complete */
+        vTaskDelay(pdMS_TO_TICKS(50));
+        FreeRTOS_closesocket(xSocket);
+        xSocket = FREERTOS_INVALID_SOCKET;
+        vTaskDelay(xRetryDelay);
+        continue;
+      }
+
+      /* Send the JSON data */
+      xTotalBytesSent = 0;
+      while (xTotalBytesSent < xJsonLength)
+      {
+        xBytesSent = FreeRTOS_send(xSocket,
+                                   &cJsonBuffer[xTotalBytesSent],
+                                   xJsonLength - xTotalBytesSent,
+                                   0);
+
+        if (xBytesSent > 0)
+        {
+          xTotalBytesSent += xBytesSent;
+        }
+        else
+        {
+          /* Send error occurred */
+          FreeRTOS_printf(("Send error occurred, retrying...\n"));
+          FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
+          /* Wait briefly for the shutdown to complete */
+          vTaskDelay(pdMS_TO_TICKS(50));
+          FreeRTOS_closesocket(xSocket);
+          xSocket = FREERTOS_INVALID_SOCKET;
+          vTaskDelay(xRetryDelay);
+          break;
+        }
+      }
+
+      /* Check if all data was sent successfully */
+      if (xTotalBytesSent == xJsonLength)
+      {
+        FreeRTOS_printf(("Handshake successful! Device registered.\n"));
+        xSendSuccess = pdTRUE;
+
+        /* Keep the socket open for future communications */
+        /* If you want to close it after successful send, uncomment below */
+        FreeRTOS_shutdown(xSocket, FREERTOS_SHUT_RDWR);
+        /* Wait briefly for the shutdown to complete */
+        vTaskDelay(pdMS_TO_TICKS(50));
+        FreeRTOS_closesocket(xSocket);
+        xSocket = FREERTOS_INVALID_SOCKET;
+      }
     }
+
+    /* After successful sending, go back to waiting for the next notification */
+  }
 }
 
 // credit Claude
