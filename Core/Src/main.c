@@ -103,6 +103,15 @@ DMA_HandleTypeDef hdma_tim5_up;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
+//identifier constants
+const char ucFirmwareVersion[] = "v0.3.5";
+const char ucHardwareVersion[] = "v2";
+const uint32_t ulSysTimClock = 200000000UL;
+uint32_t ulADCSR = 0;
+uint32_t ulAuxADCSR = 0;
+uint32_t ulTCADCSR = 0;
+
+
 // FreeRTOS and Networking
 const uint8_t ucIPAddress[4] = {configIP_ADDR0, configIP_ADDR1, configIP_ADDR2, configIP_ADDR3};
 const uint8_t ucNetMask[4] = {configNET_MASK0, configNET_MASK1, configNET_MASK2, configNET_MASK3};
@@ -114,6 +123,7 @@ const uint16_t usADCPort = 5555;
 const uint16_t usAuxADCPort = 5556;
 const uint16_t usTCADCPort = 5557;
 const uint16_t usCommandPort = 5001;
+const uint16_t usHandshakePort = 5002;
 
 /* There is only 1 physical interface. */
 NetworkInterface_t xInterfaces[1];
@@ -130,6 +140,7 @@ TaskHandle_t vADCTCPTaskHandle = NULL;
 TaskHandle_t vAuxADCTCPTaskHandle = NULL;
 TaskHandle_t vTCADCTCPTaskHandle = NULL;
 static TaskHandle_t vCommandServerTaskHandle = NULL;
+static TaskHandle_t vHandshakeTaskHandle = NULL;
 
 const UBaseType_t xADCNotifyIndex = 0; // needs configuring
 
@@ -183,6 +194,7 @@ static void vAuxADCTCPTask(void *pvParameters);
 static void vTCADCTCPTask(void *pvParameters);
 static void vCommandServerTask(void *pvParameters);
 static void prvCommandHandlerTask(void *pvParameters);
+static void vHandshakeTask(void *pvParameters);
 void prvGenerateMACFromUID(const uint32_t *uid_96bit, uint8_t *mac_addr);
 
 /* USER CODE END PFP */
@@ -193,9 +205,9 @@ void prvGenerateMACFromUID(const uint32_t *uid_96bit, uint8_t *mac_addr);
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
+ * @brief  The application entry point.
+ * @retval int
+ */
 int main(void)
 {
 
@@ -257,16 +269,19 @@ int main(void)
   MX_RNG_Init();
   /* USER CODE BEGIN 2 */
 
-  //Read UID
-  ulUID[0] = *(unsigned int*)UID_BASE;
-  ulUID[1] = *(unsigned int*)(UID_BASE+4);
-  ulUID[2] = *(unsigned int*)(UID_BASE+8);
+  // Read UID
+  ulUID[0] = *(unsigned int *)UID_BASE;
+  ulUID[1] = *(unsigned int *)(UID_BASE + 4);
+  ulUID[2] = *(unsigned int *)(UID_BASE + 8);
 
-  //RNG Setup and Seeding
+  // RNG Setup and Seeding
   RNG->CR &= ~RNG_CR_IE;
   RNG->CR |= RNG_CR_RNGEN;
-  while((RNG->SR & RNG_SR_DRDY) == 0){};
-  while(RNG->DR == 0); //wait for valid data
+  while ((RNG->SR & RNG_SR_DRDY) == 0)
+  {
+  };
+  while (RNG->DR == 0)
+    ; // wait for valid data
   ulSeed = RNG->DR;
   srand(ulSeed);
   // 7 Segment Setup
@@ -480,7 +495,6 @@ int main(void)
   SPI3->CR1 |= SPI_CR1_SPE;
   SPI3->CR1 |= SPI_CR1_CSTART;
 
-
   HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
   HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_SET);
@@ -504,23 +518,23 @@ int main(void)
   TIM1->CR1 &= ~TIM_CR1_UDIS;
   TIM1->DIER |= TIM_DMA_UPDATE;
   TIM1->EGR |= TIM_EGR_UG;
-  TIM1->CR1 |= TIM_CR1_CEN;
+  //  TIM1->CR1 |= TIM_CR1_CEN;
 
   // Enable TIM3 (SPI2)
   TIM3->CR1 |= TIM_CR1_URS;
   TIM3->CR1 &= ~TIM_CR1_UDIS;
   TIM3->DIER |= TIM_DMA_UPDATE;
   TIM3->EGR |= TIM_EGR_UG;
-  TIM3->CR1 |= TIM_CR1_CEN;
+  //  TIM3->CR1 |= TIM_CR1_CEN;
 
   // enable TIM5 (SPI3 TX)
   TIM5->CR1 |= TIM_CR1_URS;
   TIM5->CR1 &= ~TIM_CR1_UDIS;
   TIM5->DIER |= TIM_DMA_UPDATE;
   TIM5->EGR |= TIM_EGR_UG;
-  TIM5->CR1 |= TIM_CR1_CEN;
+  //  TIM5->CR1 |= TIM_CR1_CEN;
 
-  //use UID to derive MAC address
+  // use UID to derive MAC address
   prvGenerateMACFromUID(ulUID, ucMACAddress);
   /* Initialise the interface descriptor for WinPCap for example. */
   pxSTM32H_FillInterfaceDescriptor(0, &(xInterfaces[0]));
@@ -545,6 +559,7 @@ int main(void)
   xTaskCreate(vAuxADCTCPTask, "GADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vAuxADCTCPTaskHandle);
   xTaskCreate(vTCADCTCPTask, "TCADC_TCP", mainTCP_SERVER_STACK_SIZE, NULL, 1, &vTCADCTCPTaskHandle);
   xTaskCreate(vCommandServerTask, "CommandServer", mainTCP_SERVER_STACK_SIZE, NULL, tskIDLE_PRIORITY, &vCommandServerTaskHandle);
+  xTaskCreate(vHandshakeTask, "Handshake", mainTCP_SERVER_STACK_SIZE, NULL, tskIDLE_PRIORITY, &vHandshakeTaskHandle);
   vTaskStartScheduler();
 
   /* USER CODE END 2 */
@@ -561,33 +576,37 @@ int main(void)
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
+ * @brief System Clock Configuration
+ * @retval None
+ */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
   /** Supply configuration update enable
-  */
+   */
   HAL_PWREx_ConfigSupply(PWR_LDO_SUPPLY);
 
   /** Configure the main internal regulator output voltage
-  */
+   */
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
-  while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
+  while (!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY))
+  {
+  }
 
   __HAL_RCC_SYSCFG_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE0);
 
-  while(!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY)) {}
+  while (!__HAL_PWR_GET_FLAG(PWR_FLAG_VOSRDY))
+  {
+  }
 
   /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48|RCC_OSCILLATORTYPE_HSE;
+   * in the RCC_OscInitTypeDef structure.
+   */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI48 | RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
@@ -606,10 +625,8 @@ void SystemClock_Config(void)
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2
-                              |RCC_CLOCKTYPE_D3PCLK1|RCC_CLOCKTYPE_D1PCLK1;
+   */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2 | RCC_CLOCKTYPE_D3PCLK1 | RCC_CLOCKTYPE_D1PCLK1;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV2;
@@ -625,17 +642,16 @@ void SystemClock_Config(void)
 }
 
 /**
-  * @brief Peripherals Common Clock Configuration
-  * @retval None
-  */
+ * @brief Peripherals Common Clock Configuration
+ * @retval None
+ */
 void PeriphCommonClock_Config(void)
 {
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
 
   /** Initializes the peripherals clock
-  */
-  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SPI3|RCC_PERIPHCLK_SPI2
-                              |RCC_PERIPHCLK_SPI1;
+   */
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_SPI3 | RCC_PERIPHCLK_SPI2 | RCC_PERIPHCLK_SPI1;
   PeriphClkInitStruct.PLL2.PLL2M = 8;
   PeriphClkInitStruct.PLL2.PLL2N = 64;
   PeriphClkInitStruct.PLL2.PLL2P = 2;
@@ -652,10 +668,10 @@ void PeriphCommonClock_Config(void)
 }
 
 /**
-  * @brief ETH Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief ETH Initialization Function
+ * @param None
+ * @retval None
+ */
 // static void MX_ETH_Init(void)
 //{
 //
@@ -696,15 +712,15 @@ void PeriphCommonClock_Config(void)
 //  TxConfig.CRCPadCtrl = ETH_CRC_PAD_INSERT;
 //  /* USER CODE BEGIN ETH_Init 2 */
 //////////
-  /* USER CODE END ETH_Init 2 */
+/* USER CODE END ETH_Init 2 */
 
 //}
 
 /**
-  * @brief I2C4 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief I2C4 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_I2C4_Init(void)
 {
 
@@ -730,14 +746,14 @@ static void MX_I2C4_Init(void)
   }
 
   /** Configure Analogue filter
-  */
+   */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c4, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
 
   /** Configure Digital filter
-  */
+   */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c4, 0) != HAL_OK)
   {
     Error_Handler();
@@ -745,14 +761,13 @@ static void MX_I2C4_Init(void)
   /* USER CODE BEGIN I2C4_Init 2 */
 
   /* USER CODE END I2C4_Init 2 */
-
 }
 
 /**
-  * @brief RNG Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief RNG Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_RNG_Init(void)
 {
 
@@ -772,14 +787,13 @@ static void MX_RNG_Init(void)
   /* USER CODE BEGIN RNG_Init 2 */
 
   /* USER CODE END RNG_Init 2 */
-
 }
 
 /**
-  * @brief SPI1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief SPI1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_SPI1_Init(void)
 {
 
@@ -820,14 +834,13 @@ static void MX_SPI1_Init(void)
   /* USER CODE BEGIN SPI1_Init 2 */
 
   /* USER CODE END SPI1_Init 2 */
-
 }
 
 /**
-  * @brief SPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief SPI2 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_SPI2_Init(void)
 {
 
@@ -868,14 +881,13 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
-
 }
 
 /**
-  * @brief SPI3 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief SPI3 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_SPI3_Init(void)
 {
 
@@ -916,14 +928,13 @@ static void MX_SPI3_Init(void)
   /* USER CODE BEGIN SPI3_Init 2 */
 
   /* USER CODE END SPI3_Init 2 */
-
 }
 
 /**
-  * @brief TIM1 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM1 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM1_Init(void)
 {
 
@@ -961,16 +972,15 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM1_Init 2 */
-
+  ulADCSR = ulSysTimClock / (htim1.Init.Prescaler + 1) / (pow(2, htim1.Init.ClockDivision)) / (htim1.Init.Period + 1);
   /* USER CODE END TIM1_Init 2 */
-
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM2 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM2_Init(void)
 {
 
@@ -1008,14 +1018,13 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
   //
   /* USER CODE END TIM2_Init 2 */
-
 }
 
 /**
-  * @brief TIM3 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM3 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM3_Init(void)
 {
 
@@ -1051,16 +1060,15 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM3_Init 2 */
-
+  ulAuxADCSR = ulSysTimClock / (htim3.Init.Prescaler + 1) / (pow(2, htim3.Init.ClockDivision)) / (htim3.Init.Period + 1);
   /* USER CODE END TIM3_Init 2 */
-
 }
 
 /**
-  * @brief TIM4 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM4 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM4_Init(void)
 {
 
@@ -1117,14 +1125,13 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 2 */
   HAL_TIM_MspPostInit(&htim4);
-
 }
 
 /**
-  * @brief TIM5 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief TIM5 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_TIM5_Init(void)
 {
 
@@ -1160,16 +1167,15 @@ static void MX_TIM5_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM5_Init 2 */
-
+  ulTCADCSR = ulSysTimClock / (htim5.Init.Prescaler + 1) / (pow(2, htim5.Init.ClockDivision)) / (htim5.Init.Period + 1);
   /* USER CODE END TIM5_Init 2 */
-
 }
 
 /**
-  * @brief USART3 Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief USART3 Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_USART3_UART_Init(void)
 {
 
@@ -1210,12 +1216,11 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
-
 }
 
 /**
-  * Enable DMA controller clock
-  */
+ * Enable DMA controller clock
+ */
 static void MX_DMA_Init(void)
 {
 
@@ -1247,19 +1252,18 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream7_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 7, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream7_IRQn);
-
 }
 
 /**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
+ * @brief GPIO Initialization Function
+ * @param None
+ * @retval None
+ */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
+  /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOE_CLK_ENABLE();
@@ -1270,18 +1274,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, DUT_HVDC_ENABLE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, DUT_HVDC_ENABLE_Pin | DUT_VGS_IDLE_SEL_Pin | DUT_VICTRL_SEL_Pin | DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GADC_RESET_Pin|DUT_DAC_LDAC_Pin|DUT_DAC_RESET_Pin|GPIO_PIN_0
-                          |GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3|GPIO_PIN_4
-                          |GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, GADC_RESET_Pin | DUT_DAC_LDAC_Pin | DUT_DAC_RESET_Pin | GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, HS_ADC_START_Pin|HS_ADC_RESET_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, HS_ADC_START_Pin | HS_ADC_RESET_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : DUT_HVDC_ENABLE_Pin DUT_VGS_IDLE_SEL_Pin DUT_VICTRL_SEL_Pin DUT_GATE_SEL_Pin */
-  GPIO_InitStruct.Pin = DUT_HVDC_ENABLE_Pin|DUT_VGS_IDLE_SEL_Pin|DUT_VICTRL_SEL_Pin|DUT_GATE_SEL_Pin;
+  GPIO_InitStruct.Pin = DUT_HVDC_ENABLE_Pin | DUT_VGS_IDLE_SEL_Pin | DUT_VICTRL_SEL_Pin | DUT_GATE_SEL_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1290,9 +1292,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pins : GADC_RESET_Pin DUT_DAC_LDAC_Pin DUT_DAC_RESET_Pin PD0
                            PD1 PD2 PD3 PD4
                            PD5 PD6 PD7 */
-  GPIO_InitStruct.Pin = GADC_RESET_Pin|DUT_DAC_LDAC_Pin|DUT_DAC_RESET_Pin|GPIO_PIN_0
-                          |GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3|GPIO_PIN_4
-                          |GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7;
+  GPIO_InitStruct.Pin = GADC_RESET_Pin | DUT_DAC_LDAC_Pin | DUT_DAC_RESET_Pin | GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1305,7 +1305,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GADC_RVS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : HS_ADC_START_Pin HS_ADC_RESET_Pin */
-  GPIO_InitStruct.Pin = HS_ADC_START_Pin|HS_ADC_RESET_Pin;
+  GPIO_InitStruct.Pin = HS_ADC_START_Pin | HS_ADC_RESET_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1318,13 +1318,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(HS_ADC_DRDY_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : EFUSE_FLT_Pin EFUSE_PGOOD_Pin */
-  GPIO_InitStruct.Pin = EFUSE_FLT_Pin|EFUSE_PGOOD_Pin;
+  GPIO_InitStruct.Pin = EFUSE_FLT_Pin | EFUSE_PGOOD_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -1491,7 +1491,7 @@ void vApplicationIPNetworkEventHook(eIPCallbackEvent_t eNetworkEvent)
     {
       xTasksAlreadyCreated = pdTRUE;
       /* Sockets, and tasks that use the TCP/IP stack can be created here. */
-      //
+      xTaskNotifyGiveIndexed(vHandshakeTaskHandle, 0);
       xDoCreateSockets = pdTRUE;
     }
     /* Print out the network configuration, which may have come from a DHCP
@@ -1513,7 +1513,7 @@ void vApplicationIPNetworkEventHook(eIPCallbackEvent_t eNetworkEvent)
 
     FreeRTOS_printf(("Device UID: %u-%u-%u\n", ulUID[0], ulUID[1], ulUID[2]));
 
-    FreeRTOS_printf(("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n", ucMACAddress[0],ucMACAddress[1],ucMACAddress[2],ucMACAddress[3],ucMACAddress[4],ucMACAddress[5]));
+    FreeRTOS_printf(("MAC Address: %02X:%02X:%02X:%02X:%02X:%02X\n", ucMACAddress[0], ucMACAddress[1], ucMACAddress[2], ucMACAddress[3], ucMACAddress[4], ucMACAddress[5]));
   }
 }
 /*-----------------------------------------------------------*/
@@ -1636,22 +1636,22 @@ static void prvServerWorkTask(void *pvParameters)
   }
 }
 
-static void vNotifierTask(void *pvParameters)
-{
+// static void vNotifierTask(void *pvParameters)
+//{
+//
+//   // this is only used in ISR
+//   // BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+//
+//   for (;;)
+//   {
+//     xTaskNotifyGiveIndexed(vADCTCPTaskHandle, xADCNotifyIndex);
+//     xTaskNotifyGiveIndexed(vAuxADCTCPTaskHandle, xADCNotifyIndex);
+//     //      HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+//     vTaskDelay(pdMS_TO_TICKS(30));
+//   }
+// }
 
-  // this is only used in ISR
-  // BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-  for (;;)
-  {
-    xTaskNotifyGiveIndexed(vADCTCPTaskHandle, xADCNotifyIndex);
-    xTaskNotifyGiveIndexed(vAuxADCTCPTaskHandle, xADCNotifyIndex);
-    //      HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-    vTaskDelay(pdMS_TO_TICKS(30));
-  }
-}
-
-//thanks Deepseek R1
+// thanks Deepseek R1
 static void vADCTCPTask(void *pvParameters)
 {
   Socket_t xSocket = FREERTOS_INVALID_SOCKET;
@@ -1670,6 +1670,8 @@ static void vADCTCPTask(void *pvParameters)
 
   for (;;)
   {
+    /* Wait for data notification */
+    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
     /* Create socket and connect if not already connected */
     if (xSocket == FREERTOS_INVALID_SOCKET)
     {
@@ -1702,9 +1704,6 @@ static void vADCTCPTask(void *pvParameters)
         continue;
       }
     }
-
-    /* Wait for data notification */
-    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
 
     /* Select buffer based on notification */
     pcBufferToTransmit = (ulCurrBuf & 1) ? usHSADCData1 : usHSADCData0;
@@ -1765,6 +1764,8 @@ static void vAuxADCTCPTask(void *pvParameters)
 
   for (;;)
   {
+    /* Wait for data notification */
+    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
     /* Create socket and connect if not already connected */
     if (xSocket == FREERTOS_INVALID_SOCKET)
     {
@@ -1797,9 +1798,6 @@ static void vAuxADCTCPTask(void *pvParameters)
         continue;
       }
     }
-
-    /* Wait for data notification */
-    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
 
     /* Select buffer based on notification */
     pcBufferToTransmit = (ulCurrBuf & 1) ? usGADCData1 : usGADCData0;
@@ -1860,6 +1858,9 @@ static void vTCADCTCPTask(void *pvParameters)
 
   for (;;)
   {
+
+    /* Wait for data notification */
+    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
     /* Create socket and connect if not already connected */
     if (xSocket == FREERTOS_INVALID_SOCKET)
     {
@@ -1892,9 +1893,6 @@ static void vTCADCTCPTask(void *pvParameters)
         continue;
       }
     }
-
-    /* Wait for data notification */
-    xTaskNotifyWait(0x00, 0xffffffff, &ulCurrBuf, portMAX_DELAY);
 
     /* Select buffer based on notification */
     pcBufferToTransmit = (ulCurrBuf & 1) ? usTCADCData1 : usTCADCData0;
@@ -2037,27 +2035,29 @@ being passed into this RTOS task using the RTOS task's parameter. */
       if (strncmp(cRxedData, "HEAT", 4) == 0)
       {
         FreeRTOS_printf(("Received Heat Command\n"));
-//        GPIOE->BSRR = DUT_GATE_SEL_Pin << 16 | DUT_VICTRL_SEL_Pin << 16 | DUT_HVDC_ENABLE_Pin;
+        //        GPIOE->BSRR = DUT_GATE_SEL_Pin << 16 | DUT_VICTRL_SEL_Pin << 16 | DUT_HVDC_ENABLE_Pin;
         HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_SET);
-	HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_RESET);
-	HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
-	ulSevenSegD1 |= 1 << 5; // turn first digit DP on
+        HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
+        ulSevenSegD1 |= 1 << 5; // turn first digit DP on
       }
       if (strncmp(cRxedData, "COOLA", 5) == 0)
       {
         FreeRTOS_printf(("Received Advanced Cool Command\n"));
-//        GPIOE->BSRR = DUT_GATE_SEL_Pin | DUT_VICTRL_SEL_Pin | DUT_HVDC_ENABLE_Pin << 16;
-        //this sequence helps to get better results in terms of charge injection
+        //        GPIOE->BSRR = DUT_GATE_SEL_Pin | DUT_VICTRL_SEL_Pin | DUT_HVDC_ENABLE_Pin << 16;
+        // this sequence helps to get better results in terms of charge injection
         taskENTER_CRITICAL();
         HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
         HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_SET);
         HAL_GPIO_WritePin(DUT_VICTRL_SEL_GPIO_Port, DUT_VICTRL_SEL_Pin, GPIO_PIN_SET);
-        for(int i = 0; i < 5000; i++){
-	    asm("nop");
-	}
+        for (int i = 0; i < 5000; i++)
+        {
+          asm("nop");
+        }
         HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_SET);
-        for(int i = 0; i < 5000; i++){
-            asm("nop");
+        for (int i = 0; i < 5000; i++)
+        {
+          asm("nop");
         }
         HAL_GPIO_WritePin(DUT_HVDC_ENABLE_GPIO_Port, DUT_HVDC_ENABLE_Pin, GPIO_PIN_RESET);
         taskEXIT_CRITICAL();
@@ -2065,9 +2065,9 @@ being passed into this RTOS task using the RTOS task's parameter. */
       }
       if (strncmp(cRxedData, "COOLB", 5) == 0)
       {
-	FreeRTOS_printf(("Received Basic Cool Command\n"));
+        FreeRTOS_printf(("Received Basic Cool Command\n"));
         GPIOE->BSRR = DUT_GATE_SEL_Pin | DUT_VICTRL_SEL_Pin | DUT_HVDC_ENABLE_Pin << 16;
-	ulSevenSegD1 &= ~(1 << 5); // turn first digit DP off
+        ulSevenSegD1 &= ~(1 << 5); // turn first digit DP off
       }
     }
     else if (lBytesReceived == 0)
@@ -2106,30 +2106,139 @@ error before closing the socket). */
   vTaskDelete(NULL);
 }
 
-//credit Claude
-void prvGenerateMACFromUID(const uint32_t *uid_96bit, uint8_t *mac_addr) {
-    // Extract and XOR corresponding bytes
+void vHandshakeTask(void* pvParameters) {
+    Socket_t xSocket = FREERTOS_INVALID_SOCKET;
+    static const TickType_t xTimeOut = pdMS_TO_TICKS(500);
+    struct freertos_sockaddr xRemoteAddress;
+    BaseType_t xBytesSent;
+    BaseType_t xTotalBytesSent;
+    char cJsonBuffer[512]; // Increased buffer size for JSON data
+    int xJsonLength;
 
-    // Handle first 4 bytes
-    uint32_t first_word = uid_96bit[0];
-    uint32_t third_word = uid_96bit[2];
+    /* Remote address setup */
+    memset(&xRemoteAddress, 0, sizeof(xRemoteAddress));
+    xRemoteAddress.sin_port = FreeRTOS_htons(usHandshakePort);
+    xRemoteAddress.sin_address.ulIP_IPv4 = FreeRTOS_inet_addr_quick(ucServerIPAddress[0], ucServerIPAddress[1], ucServerIPAddress[2], ucServerIPAddress[3]);
+    xRemoteAddress.sin_family = FREERTOS_AF_INET4;
 
-    mac_addr[0] = ((first_word >> 24) & 0xFF) ^ ((third_word >> 24) & 0xFF);
-    mac_addr[1] = ((first_word >> 16) & 0xFF) ^ ((third_word >> 16) & 0xFF);
-    mac_addr[2] = ((first_word >> 8) & 0xFF) ^ ((third_word >> 8) & 0xFF);
-    mac_addr[3] = (first_word & 0xFF) ^ (third_word & 0xFF);
+    for (;;)
+    {
+        /* Wait for data notification */
+        xTaskNotifyWait(0x00, 0xffffffff, NULL, portMAX_DELAY);
+        FreeRTOS_printf(("Attempting Handshake...\n"));
 
-    // Handle remaining 2 bytes
-    uint32_t second_word = uid_96bit[1];
-    mac_addr[4] = ((second_word >> 24) & 0xFF) ^ ((third_word >> 24) & 0xFF);
-    mac_addr[5] = ((second_word >> 16) & 0xFF) ^ ((third_word >> 16) & 0xFF);
+        /* Create socket and connect if not already connected */
+        if (xSocket == FREERTOS_INVALID_SOCKET)
+        {
+            /* Create new socket */
+            xSocket = FreeRTOS_socket(FREERTOS_AF_INET, FREERTOS_SOCK_STREAM, FREERTOS_IPPROTO_TCP);
+            if (xSocket == FREERTOS_INVALID_SOCKET)
+            {
+                vTaskDelay(pdMS_TO_TICKS(100)); // Wait before retry
+                continue;
+            }
 
-    // Ensure locally administered (bit 1 = 1) and unicast (bit 0 = 0)
-    mac_addr[0] = (mac_addr[0] & 0xFC) | 0x02;
+            /* Configure socket options */
+            WinProperties_t xWinProperties;
+            memset(&xWinProperties, '\0', sizeof xWinProperties);
+            xWinProperties.lTxBufSize = ipconfigIPERF_TX_BUFSIZE;
+            xWinProperties.lTxWinSize = ipconfigIPERF_TX_WINSIZE;
+            xWinProperties.lRxBufSize = ipconfigIPERF_RX_BUFSIZE;
+            xWinProperties.lRxWinSize = ipconfigIPERF_RX_WINSIZE;
+
+            FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_RCVTIMEO, &xTimeOut, sizeof(xTimeOut));
+            FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_SNDTIMEO, &xTimeOut, sizeof(xTimeOut));
+            FreeRTOS_setsockopt(xSocket, 0, FREERTOS_SO_WIN_PROPERTIES, &xWinProperties, sizeof(xWinProperties));
+
+            /* Attempt connection */
+            if (FreeRTOS_connect(xSocket, &xRemoteAddress, sizeof(xRemoteAddress)) != 0)
+            {
+                FreeRTOS_closesocket(xSocket);
+                xSocket = FREERTOS_INVALID_SOCKET;
+                vTaskDelay(pdMS_TO_TICKS(100)); // Wait before retry
+                continue;
+            }
+        }
+
+
+
+        /* Construct JSON data including device UUID and other parameters */
+        xJsonLength = snprintf(cJsonBuffer, sizeof(cJsonBuffer),
+                             "{"
+                             "\"uuid\":\"%lu-%lu-%lu\","      /* Device UUID - replace with your variable */
+			     "\"mac\":\"%02X:%02X:%02X:%02X:%02X:%02X\","
+                             "\"firmware\":\"%s\"," /* Firmware version - replace with your variable */
+			     "\"hardware\":\"%s\","
+			     "\"vgsSampleRate\":\"%lu\","
+			     "\"vdsSampleRate\":\"%lu\","
+			     "\"tcSampleRate\":\"%lu\","
+
+                             "}\r\n",
+			     ulUID[0], ulUID[1], ulUID[2],            /* Replace with your UUID variable */
+			     ucMACAddress[0], ucMACAddress[1], ucMACAddress[2], ucMACAddress[3], ucMACAddress[4], ucMACAddress[5],
+			     ucFirmwareVersion,
+			     ucHardwareVersion,
+			     ulADCSR,
+			     ulAuxADCSR,
+			     ulTCADCSR);
+
+
+        if (xJsonLength < 0 || xJsonLength >= sizeof(cJsonBuffer)) {
+            /* JSON construction error or truncation occurred */
+            FreeRTOS_closesocket(xSocket);
+            xSocket = FREERTOS_INVALID_SOCKET;
+            continue;
+        }
+
+        /* Send the JSON data */
+        xTotalBytesSent = 0;
+        while (xTotalBytesSent < xJsonLength)
+        {
+            xBytesSent = FreeRTOS_send(xSocket,
+                                      &cJsonBuffer[xTotalBytesSent],
+                                      xJsonLength - xTotalBytesSent,
+                                      0);
+
+            if (xBytesSent > 0)
+            {
+                xTotalBytesSent += xBytesSent;
+            }
+            else
+            {
+                /* Send error occurred */
+                FreeRTOS_closesocket(xSocket);
+                xSocket = FREERTOS_INVALID_SOCKET;
+                break;
+            }
+        }
+    }
+}
+
+// credit Claude
+void prvGenerateMACFromUID(const uint32_t *uid_96bit, uint8_t *mac_addr)
+{
+  // Extract and XOR corresponding bytes
+
+  // Handle first 4 bytes
+  uint32_t first_word = uid_96bit[0];
+  uint32_t third_word = uid_96bit[2];
+
+  mac_addr[0] = ((first_word >> 24) & 0xFF) ^ ((third_word >> 24) & 0xFF);
+  mac_addr[1] = ((first_word >> 16) & 0xFF) ^ ((third_word >> 16) & 0xFF);
+  mac_addr[2] = ((first_word >> 8) & 0xFF) ^ ((third_word >> 8) & 0xFF);
+  mac_addr[3] = (first_word & 0xFF) ^ (third_word & 0xFF);
+
+  // Handle remaining 2 bytes
+  uint32_t second_word = uid_96bit[1];
+  mac_addr[4] = ((second_word >> 24) & 0xFF) ^ ((third_word >> 24) & 0xFF);
+  mac_addr[5] = ((second_word >> 16) & 0xFF) ^ ((third_word >> 16) & 0xFF);
+
+  // Ensure locally administered (bit 1 = 1) and unicast (bit 0 = 0)
+  mac_addr[0] = (mac_addr[0] & 0xFC) | 0x02;
 }
 /* USER CODE END 4 */
 
- /* MPU Configuration */
+/* MPU Configuration */
 
 void MPU_Config(void)
 {
@@ -2139,7 +2248,7 @@ void MPU_Config(void)
   HAL_MPU_Disable();
 
   /** Initializes and configures the Region and the memory to be protected
-  */
+   */
   MPU_InitStruct.Enable = MPU_REGION_ENABLE;
   MPU_InitStruct.Number = MPU_REGION_NUMBER0;
   MPU_InitStruct.BaseAddress = 0x24000000;
@@ -2155,20 +2264,19 @@ void MPU_Config(void)
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 
   /** Initializes and configures the Region and the memory to be protected
-  */
+   */
   MPU_InitStruct.Number = MPU_REGION_NUMBER1;
   MPU_InitStruct.BaseAddress = 0x30000000;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
-
 }
 
 /**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
+ * @brief  This function is executed in case of error occurrence.
+ * @retval None
+ */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
@@ -2180,14 +2288,14 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
