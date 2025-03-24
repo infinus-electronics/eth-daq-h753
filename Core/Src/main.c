@@ -104,8 +104,8 @@ UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 // identifier constants
-const char ucFirmwareVersion[] = "v0.3.5";
-const char ucHardwareVersion[] = "v2";
+const char ucFirmwareVersion[] = "v0.3.9";
+const char ucHardwareVersion[] = "v4a";
 const uint32_t ulSysTimClock = 200000000UL;
 uint32_t ulADCSR = 0;
 uint32_t ulAuxADCSR = 0;
@@ -326,7 +326,7 @@ int main(void)
   //          I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
   //          return;  // Abort on failure
   //      }
-  I2C4->TXDR = 0b00110001; // write 2V = 3276 to DAC A, left justified 12 bit to 16 bit
+  I2C4->TXDR = 0b00110001; // write 1V = 1638 to DAC A, left justified 12 bit to 16 bit
   while ((I2C4->ISR & (I2C_ISR_TXIS)) == 0)
     ;
   I2C4->TXDR = 0x66; // MSB
@@ -353,13 +353,13 @@ int main(void)
   //          I2C4->ICR |= I2C_ICR_NACKCF;  // Clear NACK flag
   //          return;  // Abort on failure
   //      }
-  I2C4->TXDR = 0b00111000; // write 0.4V = 656 to DAC B, left justified 12 bit to 16 bit
+  I2C4->TXDR = 0b00111000; // write 0.4V = 655 to DAC B, left justified 12 bit to 16 bit
   while ((I2C4->ISR & (I2C_ISR_TXIS)) == 0)
     ;
-  I2C4->TXDR = 0x29; // MSB
+  I2C4->TXDR = 0x28; // MSB
   while ((I2C4->ISR & (I2C_ISR_TXIS)) == 0)
     ;
-  I2C4->TXDR = 0x00; // LSB
+  I2C4->TXDR = 0x70; // LSB
   while ((I2C4->ISR & (I2C_ISR_TXE)) == 0)
     ;
   // Check if NACK occurred
