@@ -104,7 +104,7 @@ UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 // identifier constants
-const char ucFirmwareVersion[] = "v0.3.9";
+const char ucFirmwareVersion[] = "v0.4.1";
 const char ucHardwareVersion[] = "v4a";
 const uint32_t ulSysTimClock = 200000000UL;
 uint32_t ulADCSR = 0;
@@ -195,6 +195,9 @@ static void vCommandServerTask(void *pvParameters);
 static void prvCommandHandlerTask(void *pvParameters);
 static void vHandshakeTask(void *pvParameters);
 void prvGenerateMACFromUID(const uint32_t *uid_96bit, uint8_t *mac_addr);
+static uint16_t prvConvertSetpointToDAC(uint32_t setpoint);
+static void prvWriteDACATask(void *pvParameters);
+static void prvWriteDACBTask(void *pvParameters);
 
 /* USER CODE END PFP */
 
@@ -459,7 +462,7 @@ int main(void)
   {
   }; // wait for enough space to become available
   ucGADCSPIData[0] = 0b1101000000010100; // 14h
-  ucGADCSPIData[1] = 0b10;               // range select +-1.5x VREF
+  ucGADCSPIData[1] = 0b01;               // range select +-2.5x VREF
   SPI2->TXDR = ((ucGADCSPIData[0] << 16) | ucGADCSPIData[1]);
   while ((SPI2->SR & SPI_SR_TXC) == 0)
   {
@@ -2004,6 +2007,10 @@ static void prvCommandHandlerTask(void *pvParameters)
   static char cRxedData[CMD_BUFFER_SIZE];
   BaseType_t lBytesReceived;
 
+  static uint32_t ulDACASetpoint = 0;
+  static uint32_t ulDACBSetpoint = 0;
+
+
   /* It is assumed the socket has already been created and connected before
 being passed into this RTOS task using the RTOS task's parameter. */
   xSocket = (Socket_t)pvParameters;
@@ -2043,6 +2050,150 @@ being passed into this RTOS task using the RTOS task's parameter. */
         HAL_GPIO_WritePin(DUT_GATE_SEL_GPIO_Port, DUT_GATE_SEL_Pin, GPIO_PIN_RESET);
         ulSevenSegD1 |= 1 << 5; // turn first digit DP on
       }
+      else if (strncmp(cRxedData, "SETH", 4) == 0)
+      {
+          // Debug output to see exactly what was received
+          FreeRTOS_printf(("Debug - Received: '%s', Length: %d\n", cRxedData, lBytesReceived));
+
+          // Check if we have enough data after "SETH" (at least one digit)
+          if (lBytesReceived > 4) {
+              // Create a temporary buffer for the value
+              char valueBuf[16] = {0}; // Buffer for the numeric part
+              size_t valueLen = 0;
+              int startIdx = 4; // Starting after "SETH"
+
+              // Skip any whitespace characters
+              while (startIdx < lBytesReceived && (cRxedData[startIdx] == ' ' || cRxedData[startIdx] == '\t')) {
+                  startIdx++;
+              }
+
+              // Check if there's anything after the whitespace
+              if (startIdx < lBytesReceived) {
+                  // Copy digits to our buffer (stopping at non-digits or buffer limit)
+                  while (startIdx < lBytesReceived && valueLen < sizeof(valueBuf) - 1 &&
+                         isdigit((unsigned char)cRxedData[startIdx])) {
+                      valueBuf[valueLen++] = cRxedData[startIdx++];
+                  }
+
+                  // Ensure null termination
+                  valueBuf[valueLen] = '\0';
+
+                  // Debug the extracted value
+                  FreeRTOS_printf(("Debug - Extracted value: '%s'\n", valueBuf));
+
+                  // Convert the value if we found any digits
+                  if (valueLen > 0) {
+                      long value = strtol(valueBuf, NULL, 10);
+
+                      // Check if value is in valid range
+                      if (value >= 0 && value <= UINT32_MAX) {
+                          // Store the value in the variable
+                          ulDACASetpoint = (uint32_t)value;
+                          FreeRTOS_printf(("Received Set Heat Current Command: %lu\n", ulDACASetpoint));
+
+                          // Create a task to write the value to the DAC
+			  TaskHandle_t xDACTaskHandle = NULL;
+			  BaseType_t xStatus = xTaskCreate(
+			      prvWriteDACATask,        /* Function that implements the task */
+			      "DACAWrite",             /* Text name for the task */
+			      configMINIMAL_STACK_SIZE, /* Stack size in words, not bytes */
+			      (void *)ulDACASetpoint, /* Parameter passed into the task */
+			      tskIDLE_PRIORITY,   /* Priority at which the task is created */
+			      &xDACTaskHandle);       /* Used to pass out the created task's handle */
+
+			  if (xStatus != pdPASS) {
+			      FreeRTOS_printf(("Error: Failed to create DAC A write task\n"));
+			  }
+                      }
+                      else {
+                          FreeRTOS_printf(("Error: Heat current setpoint value out of range\n"));
+                      }
+                  }
+                  else {
+                      FreeRTOS_printf(("Error: No valid digits found in SETH command\n"));
+                  }
+              }
+              else {
+                  FreeRTOS_printf(("Error: No value provided after SETH command\n"));
+              }
+          }
+          else {
+              FreeRTOS_printf(("Error: SETH command too short\n"));
+          }
+      }
+
+      else if (strncmp(cRxedData, "SETC", 4) == 0)
+      {
+	  // Debug output to see exactly what was received
+	  FreeRTOS_printf(("Debug - Received: '%s', Length: %d\n", cRxedData, lBytesReceived));
+
+	  // Check if we have enough data after "SETH" (at least one digit)
+	  if (lBytesReceived > 4) {
+	      // Create a temporary buffer for the value
+	      char valueBuf[16] = {0}; // Buffer for the numeric part
+	      size_t valueLen = 0;
+	      int startIdx = 4; // Starting after "SETH"
+
+	      // Skip any whitespace characters
+	      while (startIdx < lBytesReceived && (cRxedData[startIdx] == ' ' || cRxedData[startIdx] == '\t')) {
+		  startIdx++;
+	      }
+
+	      // Check if there's anything after the whitespace
+	      if (startIdx < lBytesReceived) {
+		  // Copy digits to our buffer (stopping at non-digits or buffer limit)
+		  while (startIdx < lBytesReceived && valueLen < sizeof(valueBuf) - 1 &&
+			 isdigit((unsigned char)cRxedData[startIdx])) {
+		      valueBuf[valueLen++] = cRxedData[startIdx++];
+		  }
+
+		  // Ensure null termination
+		  valueBuf[valueLen] = '\0';
+
+		  // Debug the extracted value
+		  FreeRTOS_printf(("Debug - Extracted value: '%s'\n", valueBuf));
+
+		  // Convert the value if we found any digits
+		  if (valueLen > 0) {
+		      long value = strtol(valueBuf, NULL, 10);
+
+		      // Check if value is in valid range
+		      if (value >= 0 && value <= UINT32_MAX) {
+			  // Store the value in the variable
+			  ulDACBSetpoint = (uint32_t)value;
+			  FreeRTOS_printf(("Received Set Measurement Current Command: %lu\n", ulDACBSetpoint));
+
+			  // Create a task to write the value to the DAC
+			  TaskHandle_t xDACTaskHandle = NULL;
+			  BaseType_t xStatus = xTaskCreate(
+			      prvWriteDACBTask,        /* Function that implements the task */
+			      "DACBWrite",             /* Text name for the task */
+			      configMINIMAL_STACK_SIZE, /* Stack size in words, not bytes */
+			      (void *)ulDACBSetpoint, /* Parameter passed into the task */
+			      tskIDLE_PRIORITY,   /* Priority at which the task is created */
+			      &xDACTaskHandle);       /* Used to pass out the created task's handle */
+
+			  if (xStatus != pdPASS) {
+			      FreeRTOS_printf(("Error: Failed to create DAC B write task\n"));
+			  }
+		      }
+		      else {
+			  FreeRTOS_printf(("Error: Measurement current setpoint value out of range\n"));
+		      }
+		  }
+		  else {
+		      FreeRTOS_printf(("Error: No valid digits found in SETC command\n"));
+		  }
+	      }
+	      else {
+		  FreeRTOS_printf(("Error: No value provided after SETC command\n"));
+	      }
+	  }
+	  else {
+	      FreeRTOS_printf(("Error: SETC command too short\n"));
+	  }
+      }
+
       if (strncmp(cRxedData, "COOLA", 5) == 0)
       {
         FreeRTOS_printf(("Received Advanced Cool Command\n"));
@@ -2280,6 +2431,193 @@ void prvGenerateMACFromUID(const uint32_t *uid_96bit, uint8_t *mac_addr)
 
   // Ensure locally administered (bit 1 = 1) and unicast (bit 0 = 0)
   mac_addr[0] = (mac_addr[0] & 0xFC) | 0x02;
+}
+
+// Function to convert heat setpoint to DAC value
+static uint16_t prvConvertSetpointToDAC(uint32_t setpoint)
+{
+    // Example conversion: Linear mapping from setpoint to DAC value
+    // Assuming setpoint 0-4095 maps to DAC 0-4095
+    // Adjust this formula based on your specific requirements
+    uint16_t dacValue = (uint16_t)(setpoint & 0xFFF);
+    return dacValue;
+}
+
+/*
+ * Task to write the setpoint value to the DAC using I2C and then delete itself
+ */
+static void prvWriteDACATask(void *pvParameters)
+{
+    uint32_t ulSetpoint = (uint32_t)pvParameters;
+    uint16_t dacValue = prvConvertSetpointToDAC(ulSetpoint);
+
+    // Calculate upper and lower bytes for DAC
+    uint8_t msByte = (dacValue >> 4) & 0xFF;  // Upper 8 bits
+    uint8_t lsByte = (dacValue << 4) & 0xF0;  // Lower 4 bits, left justified
+
+    FreeRTOS_printf(("Writing value %lu (DAC: 0x%02X%02X) to DAC Channel A...\n", ulSetpoint, msByte, lsByte));
+
+    // Critical section to prevent I2C interrupt conflicts
+//    taskENTER_CRITICAL();
+
+    // Configure I2C transfer
+    I2C4->CR2 = ((0b0001100 << 1) & 0xFFFE)  // 7-bit address
+              | (3 << 16)                     // NBYTES = 3
+              | (0 << 10)                     // Write direction (0 = write)
+              | I2C_CR2_AUTOEND              // Auto generate STOP
+              | I2C_CR2_START;               // Generate START
+
+    // Wait for TX buffer empty or NACK
+    while ((I2C4->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) == 0)
+        ;
+
+    // Check for NACK
+    if (I2C4->ISR & I2C_ISR_NACKF) {
+        I2C4->ICR |= I2C_ICR_NACKCF;         // Clear NACK flag
+        FreeRTOS_printf(("I2C NACK received at command byte\n"));
+//        taskEXIT_CRITICAL();
+        vTaskDelete(NULL);                   // Delete this task
+        return;
+    }
+
+    // Send command byte - write to DAC A, left justified
+    I2C4->TXDR = 0b00110001;
+
+    // Wait for TX buffer empty
+    while ((I2C4->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) == 0)
+        ;
+
+    // Check for NACK
+    if (I2C4->ISR & I2C_ISR_NACKF) {
+        I2C4->ICR |= I2C_ICR_NACKCF;         // Clear NACK flag
+        FreeRTOS_printf(("I2C NACK received at MSB\n"));
+//        taskEXIT_CRITICAL();
+        vTaskDelete(NULL);                   // Delete this task
+        return;
+    }
+
+    // Send MSB
+    I2C4->TXDR = msByte;
+
+    // Wait for TX buffer empty
+    while ((I2C4->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) == 0)
+        ;
+
+    // Check for NACK
+    if (I2C4->ISR & I2C_ISR_NACKF) {
+        I2C4->ICR |= I2C_ICR_NACKCF;         // Clear NACK flag
+        FreeRTOS_printf(("I2C NACK received at LSB\n"));
+//        taskEXIT_CRITICAL();
+        vTaskDelete(NULL);                   // Delete this task
+        return;
+    }
+
+    // Send LSB
+    I2C4->TXDR = lsByte;
+
+    // Wait for transfer complete
+    while ((I2C4->ISR & I2C_ISR_TXE) == 0)
+        ;
+
+    // Check if NACK occurred
+    if (I2C4->ISR & I2C_ISR_NACKF) {
+        I2C4->ICR |= I2C_ICR_NACKCF;         // Clear NACK flag
+        FreeRTOS_printf(("I2C NACK received during transfer\n"));
+    } else {
+        FreeRTOS_printf(("DAC Channel A value set successfully\n"));
+    }
+
+//    taskEXIT_CRITICAL();
+
+    // Task completed - delete itself
+    vTaskDelete(NULL);
+}
+
+static void prvWriteDACBTask(void *pvParameters)
+{
+    uint32_t ulSetpoint = (uint32_t)pvParameters;
+    uint16_t dacValue = prvConvertSetpointToDAC(ulSetpoint);
+
+    // Calculate upper and lower bytes for DAC
+    uint8_t msByte = (dacValue >> 4) & 0xFF;  // Upper 8 bits
+    uint8_t lsByte = (dacValue << 4) & 0xF0;  // Lower 4 bits, left justified
+
+    FreeRTOS_printf(("Writing value %lu (DAC: 0x%02X%02X) to DAC Channel B...\n", ulSetpoint, msByte, lsByte));
+
+    // Critical section to prevent I2C interrupt conflicts
+//    taskENTER_CRITICAL();
+
+    // Configure I2C transfer
+    I2C4->CR2 = ((0b0001100 << 1) & 0xFFFE)  // 7-bit address
+              | (3 << 16)                     // NBYTES = 3
+              | (0 << 10)                     // Write direction (0 = write)
+              | I2C_CR2_AUTOEND              // Auto generate STOP
+              | I2C_CR2_START;               // Generate START
+
+    // Wait for TX buffer empty or NACK
+    while ((I2C4->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) == 0)
+        ;
+
+    // Check for NACK
+    if (I2C4->ISR & I2C_ISR_NACKF) {
+        I2C4->ICR |= I2C_ICR_NACKCF;         // Clear NACK flag
+        FreeRTOS_printf(("I2C NACK received at command byte\n"));
+//        taskEXIT_CRITICAL();
+        vTaskDelete(NULL);                   // Delete this task
+        return;
+    }
+
+    // Send command byte - write to DAC B, left justified
+    I2C4->TXDR = 0b00111000;
+
+    // Wait for TX buffer empty
+    while ((I2C4->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) == 0)
+        ;
+
+    // Check for NACK
+    if (I2C4->ISR & I2C_ISR_NACKF) {
+        I2C4->ICR |= I2C_ICR_NACKCF;         // Clear NACK flag
+        FreeRTOS_printf(("I2C NACK received at MSB\n"));
+//        taskEXIT_CRITICAL();
+        vTaskDelete(NULL);                   // Delete this task
+        return;
+    }
+
+    // Send MSB
+    I2C4->TXDR = msByte;
+
+    // Wait for TX buffer empty
+    while ((I2C4->ISR & (I2C_ISR_TXIS | I2C_ISR_NACKF)) == 0)
+        ;
+
+    // Check for NACK
+    if (I2C4->ISR & I2C_ISR_NACKF) {
+        I2C4->ICR |= I2C_ICR_NACKCF;         // Clear NACK flag
+        FreeRTOS_printf(("I2C NACK received at LSB\n"));
+//        taskEXIT_CRITICAL();
+        vTaskDelete(NULL);                   // Delete this task
+        return;
+    }
+
+    // Send LSB
+    I2C4->TXDR = lsByte;
+
+    // Wait for transfer complete
+    while ((I2C4->ISR & I2C_ISR_TXE) == 0)
+        ;
+
+    // Check if NACK occurred
+    if (I2C4->ISR & I2C_ISR_NACKF) {
+        I2C4->ICR |= I2C_ICR_NACKCF;         // Clear NACK flag
+        FreeRTOS_printf(("I2C NACK received during transfer\n"));
+    } else {
+        FreeRTOS_printf(("DAC Channel B value set successfully\n"));
+    }
+
+//    taskEXIT_CRITICAL();
+
+    // Task completed - delete itself
+    vTaskDelete(NULL);
 }
 /* USER CODE END 4 */
 
