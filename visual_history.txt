@@ -1,0 +1,191 @@
+* commit 620f074f3dc95336b6e03258ee5f162bddf90d10
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Fri Mar 28 16:52:16 2025 +0000
+| 
+|     added code to set dac remotely
+| 
+* commit 310d39afe60412037097fbb0765e4e2931d4741f
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Mon Mar 24 18:09:11 2025 +0000
+| 
+|     v4
+| 
+* commit 61b9e45ec5073d0e34c465756fde608d6c1431c5
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Thu Feb 27 21:44:28 2025 +0000
+| 
+|     added start dmaing
+| 
+* commit 47e3e06010585e36ec6c958eb9b0b8bc6d50128f
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Thu Feb 27 12:51:27 2025 +0000
+| 
+|     format doc
+| 
+* commit eae8cf472d6ba0dd9f83298daaa20c3c5ecfca2c
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Thu Feb 27 12:50:58 2025 +0000
+| 
+|     added some error handling logic
+| 
+* commit dbb27fe33f7dc768045a9667299abeec784f872a
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Thu Feb 27 12:35:43 2025 +0000
+| 
+|     added handshake string handling
+| 
+* commit f2f68ffe8e7408641a27348d9b97ee443cb76043
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Fri Feb 21 18:17:06 2025 +0000
+| 
+|     claude assisted UUID based MAC
+| 
+* commit 00c41e3d642f804eb776020259b7f9386324f37d
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Fri Feb 21 17:30:47 2025 +0000
+| 
+|     dhcp really does work
+| 
+* commit 7a62ef02b5ec3ae0d6a1871da3b546614bbe643e
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Fri Feb 21 17:21:28 2025 +0000
+| 
+|     rng seeding seems to work
+| 
+* commit 849bd1790cfe8a068904c1647107157770c22aaf
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Fri Feb 21 16:53:40 2025 +0000
+| 
+|     rename vars
+| 
+* commit a9d2af44d9f31fc773e716dae568fc14c0132041
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Thu Feb 6 17:06:19 2025 +0000
+| 
+|     code format
+| 
+* commit 16e19d4a5c17a8af887312d8caf373a4b9b7ee51
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Wed Feb 5 17:26:41 2025 +0000
+| 
+|     works
+| 
+* commit 9dbf9067e1c16d18ff9c906bdd2c7ca184e8fc76
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Wed Feb 5 15:37:21 2025 +0000
+| 
+|     dac vals
+| 
+* commit 8394ca53b0acfbb6bd99034bc67939390a5ce402
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Wed Feb 5 15:25:05 2025 +0000
+| 
+|     pinout error
+| 
+* commit a15d9a1d85cfa7ca4fd7aec582457d7de14f92fa
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Wed Feb 5 15:22:40 2025 +0000
+| 
+|     confirmed basic command handling
+| 
+* commit f6883a2d63c9bc8efcccb8db67281f8c8a5c03bb
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Wed Feb 5 15:07:05 2025 +0000
+| 
+|     simple command handling seems to work
+| 
+* commit 4c6c71b7e64ba5c10d8ed915aae12973d737bbf0
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sun Feb 2 17:13:54 2025 +0000
+| 
+|     tc adc done
+| 
+* commit d77172de46ed0433c09efbc24646513b2ec0c8f2
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sun Feb 2 16:39:43 2025 +0000
+| 
+|     tcadc almost
+| 
+* commit 2210101c9908bee67304d752864faca95646c614
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sat Feb 1 17:29:05 2025 +0000
+| 
+|     gadc streaming works, changed buffer size
+| 
+* commit 9c4379a0dae3a375e964f0f7c96925449df026d6
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sat Feb 1 17:09:39 2025 +0000
+| 
+|     gadc works
+| 
+* commit a1806b1faeddf790fc258b0190686efa4cdad223
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sat Feb 1 16:31:17 2025 +0000
+| 
+|     spi start
+| 
+* commit 5b529fd062e2ce1b5e178875bfb5d06095006542
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sat Feb 1 16:14:14 2025 +0000
+| 
+|     weird memory corruption
+| 
+* commit b2e24bd0720a6f7fa53719628ba79fb2b1f74cc8
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sat Feb 1 16:05:25 2025 +0000
+| 
+|     data corruption
+| 
+* commit ae4c400f2980a21fd722d6a4815d374f498e2f9e
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sat Feb 1 15:17:07 2025 +0000
+| 
+|     wrong per
+| 
+* commit 04919aba73023cadc4898465011d9f68bd62e1d8
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Sat Feb 1 14:52:14 2025 +0000
+| 
+|     DAC I2C Works
+| 
+* commit f8e60552fca2a3aa0baa48b5fd8371064454b88f
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Fri Jan 31 14:53:23 2025 +0000
+| 
+|     adc data success!
+| 
+* commit cc8ebc41d26f8b05ebbdfd220e68474fb7c60a76
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Fri Jan 31 13:11:38 2025 +0000
+| 
+|     net works
+| 
+* commit 7aa5cc606cbf26674c1bdebe667a80689e43bf8f
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Thu Jan 30 15:59:35 2025 +0000
+| 
+|     phy works but not code
+| 
+* commit 3050f8c263a31c46ae4b74580d20abcb13a60169
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Wed Jan 29 22:01:13 2025 +0000
+| 
+|     porting compiles, no SPI TIM
+| 
+* commit 1d29feb743b95e11c35358465b15cad14ce1013e
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Wed Jan 29 21:50:08 2025 +0000
+| 
+|     workspace setup
+| 
+* commit a839480b10b3a131794ed3cb4d1d8f242c224fa3
+| Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+| Date:   Wed Jan 29 21:38:36 2025 +0000
+| 
+|     init stm32cube
+| 
+* commit fddbfad59eab616a50e5463cc4eec6f1927c8a97
+  Author: infinus-electronics <70929247+infinus-electronics@users.noreply.github.com>
+  Date:   Wed Jan 29 17:25:44 2025 +0000
+  
+      init
